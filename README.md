@@ -29,6 +29,7 @@
 - [企画概要・コンセプト](docs/overview.md) - 目的、背景、対象者の詳細
 - [全体スケジュール](docs/schedule.md) - 週次の詳細スケジュール
 - [学習の流れ・トピック関連図](docs/progression.md) - トピック間の依存関係と学習順序
+- [講師・ファシリテーター準備ガイド](docs/facilitator-prep-guide.md) - 各回の講師向け準備チェックリストと進行ガイド
 
 ## 対象者
 
@@ -52,7 +53,8 @@ architecture_toryumon/
 ├── docs/
 │   ├── overview.md            # 企画概要・コンセプト
 │   ├── schedule.md            # 全体スケジュール
-│   └── progression.md         # 学習の流れ・トピック関連図
+│   ├── progression.md         # 学習の流れ・トピック関連図
+│   └── facilitator-prep-guide.md # 講師・ファシリテーター準備ガイド
 └── workshops/
     ├── 00-orientation/        # 第0回：オリエンテーション
     ├── 01-object-oriented/    # 第1回：オブジェクト指向
