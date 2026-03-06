@@ -30,6 +30,12 @@
 - [全体スケジュール](docs/schedule.md) - 週次の詳細スケジュール
 - [学習の流れ・トピック関連図](docs/progression.md) - トピック間の依存関係と学習順序
 - [講師・ファシリテーター準備ガイド](docs/facilitator-prep-guide.md) - 各回の講師向け準備チェックリストと進行ガイド
+- [講師のための自己学習ガイド](docs/instructor-learning-guide.md) - 各回で深めるべきポイントと推奨リーディング
+- [ディスカッションファシリテーション集](docs/discussion-facilitation-kit.md) - 各回のディスカッションシナリオと進行台本
+- [回をまたぐ「つなぎ台本」](docs/session-bridge-scripts.md) - 前回の振り返りと次回への橋渡しフレーズ集
+- [講師の理解度セルフチェックシート](docs/instructor-self-check.md) - 教えられるレベルに達しているかの確認リスト
+- [「よくある誤解」ハンドブック](docs/common-misconceptions.md) - 各テーマの典型的な誤解と正しい理解
+- [参考書籍クイックリファレンス](docs/instructor-reading-list.md) - 講師向け優先読書ガイド
 
 ## 対象者
 
