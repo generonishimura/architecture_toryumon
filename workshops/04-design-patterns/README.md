@@ -184,6 +184,52 @@ ECサイトの「配送料金計算」をデザインパターンを用いて設
 
 NestJSのソースコードを読み、どのデザインパターンが使われているかを3つ以上特定し、それぞれの役割を説明してください。
 
+## 事前準備
+
+### 参加者
+
+#### 前提知識の確認
+
+- [ ] 第1回のSOLID原則（特に開放閉鎖の原則・依存性逆転の原則）を復習済み
+- [ ] TypeScriptのインターフェースと実装の使い分けが理解できている
+- [ ] 「抽象に依存する」という概念がイメージできる
+
+#### 事前読み物（30分程度）
+
+- [ ] 以下のキーワードについて、知っている範囲で概要を調べておく
+  - Factory パターン、Strategy パターン、Observer パターン
+  - 「デザインパターン」という考え方が生まれた背景（GoF）
+- [ ] 自分が使っているフレームワーク（Express、NestJS、Next.js等）で「これはパターンっぽい」と感じる仕組みを1つ挙げてみる
+  - 例：Expressのミドルウェア、NestJSのDIコンテナ
+
+#### 事前ミニ課題（任意・15分程度）
+
+以下のコードを読み、「新しい割引タイプを追加するとき何が大変か」を考えてメモしておいてください。
+
+```typescript
+class PriceCalculator {
+  calculate(basePrice: number, discountType: string): number {
+    if (discountType === 'member') {
+      return basePrice * 0.9;
+    } else if (discountType === 'sale') {
+      return basePrice * 0.8;
+    } else if (discountType === 'coupon') {
+      return basePrice * 0.85;
+    } else {
+      return basePrice;
+    }
+  }
+}
+```
+
+### 運営側
+
+- [ ] 第3回の課題提出状況の確認
+- [ ] 各パターンのコード例が動作確認済みであること
+- [ ] パターンの適用前（Before）/ 適用後（After）を並べて比較できるスライドの準備
+- [ ] Repository パターンのインメモリ実装とDB実装の切り替えデモの準備
+- [ ] NestJS / Express での実際のパターン活用例の資料準備
+
 ## 参考資料
 
 - 『Head First デザインパターン』Eric Freeman 他

@@ -136,6 +136,52 @@ class OrderService {
 
 自分のプロジェクトのコードから、SOLID原則に違反していると思われる箇所を1つ見つけ、リファクタリング案を書いてください。Before/Afterのコードと、どの原則を適用したかを説明してください。
 
+## 事前準備
+
+### 参加者
+
+#### 前提知識の確認
+
+- [ ] TypeScriptのクラス構文を理解している（`class`、`constructor`、`public`/`private`/`readonly`）
+- [ ] TypeScriptのインターフェース構文を理解している（`interface`、`implements`）
+- [ ] 「継承」と「インターフェースの実装」の構文上の違いが分かる
+
+#### 事前読み物（30分程度）
+
+- [ ] 自分が最近書いた（または読んだ）コードの中で「このクラス、いろいろやりすぎでは？」と感じた箇所を1つ思い出しておく
+- [ ] 以下のキーワードについて、知っている範囲で意味を調べておく
+  - カプセル化、ポリモーフィズム、継承
+  - SOLID原則（概要レベルでOK）
+
+#### 事前ミニ課題（任意・15分程度）
+
+以下のコードを読み、「何が問題だと思うか」を自分の言葉でメモしておいてください。正解は講義中に扱います。
+
+```typescript
+class UserService {
+  async createUser(name: string, email: string): Promise<void> {
+    // バリデーション
+    if (!email.includes('@')) throw new Error('Invalid email');
+    // DBに保存
+    await db.query('INSERT INTO users (name, email) VALUES (?, ?)', [name, email]);
+    // ウェルカムメール送信
+    await sendEmail(email, 'ようこそ！', `${name}さん、登録ありがとうございます。`);
+    // 管理者に通知
+    await sendSlack('#admin', `新規ユーザー登録: ${name}`);
+    // ログ出力
+    console.log(`User created: ${name} (${email})`);
+  }
+}
+```
+
+### 運営側
+
+- [ ] 第0回の振り返り・参加者の反応の確認
+- [ ] SOLID原則の各コード例の動作確認（TypeScript Playground等）
+- [ ] 講義スライドの準備（Bad/Goodコードの比較が視覚的に分かる構成）
+- [ ] ディスカッションのファシリテーション準備（グループ分け案の検討）
+- [ ] 参加者の事前アンケート結果に基づく理解度の把握
+
 ## 参考資料
 
 - 『オブジェクト指向設計実践ガイド』Sandi Metz
