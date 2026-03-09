@@ -246,6 +246,58 @@ class PrismaOrderRepository implements OrderRepository {
 
 自分のプロジェクトのコードを、クリーンアーキテクチャの4レイヤーに分類してみてください。依存ルールに違反している箇所を特定し、改善案を提示してください。
 
+## 事前準備
+
+### 参加者
+
+#### 前提知識の確認
+
+- [ ] 第1回の依存性逆転の原則（DIP）を復習済み — 「抽象に依存する」意味が説明できる
+- [ ] 第4回のデザインパターン（Adapter、Repository）を復習済み
+- [ ] 第5回のDDD（エンティティ、値オブジェクト、集約、ドメインサービス）を復習済み
+
+#### 事前読み物（30分程度）
+
+- [ ] 自分のプロジェクトのディレクトリ構造を確認し、「ビジネスロジック」と「フレームワーク/DB依存のコード」がどこに置かれているか整理しておく
+- [ ] 以下のキーワードについて概要を調べておく
+  - クリーンアーキテクチャの同心円モデル
+  - ヘキサゴナルアーキテクチャ（ポートとアダプター）
+  - ユースケース（アプリケーションサービス）
+
+#### 事前ミニ課題（任意・15分程度）
+
+以下のコードで、どの部分が「ビジネスロジック」でどの部分が「外部の詳細（フレームワーク・DB）」か、線引きしてみてください。
+
+```typescript
+app.post('/orders', async (req, res) => {
+  const { customerId, items } = req.body;
+  const customer = await prisma.customer.findUnique({ where: { id: customerId } });
+  if (!customer) return res.status(404).json({ error: 'Customer not found' });
+
+  let total = 0;
+  for (const item of items) {
+    const product = await prisma.product.findUnique({ where: { id: item.productId } });
+    if (product.stock < item.quantity) {
+      return res.status(400).json({ error: `${product.name} の在庫が不足しています` });
+    }
+    total += product.price * item.quantity;
+  }
+
+  const order = await prisma.order.create({
+    data: { customerId, totalAmount: total, items: { create: items } },
+  });
+  res.status(201).json({ orderId: order.id });
+});
+```
+
+### 運営側
+
+- [ ] 第5回の課題提出状況の確認（ドメインモデル設計の理解度）
+- [ ] 同心円モデルの図解スライドの準備
+- [ ] ディレクトリ構造の例をプロジェクトテンプレートとして準備
+- [ ] ユースケースクラスのライブコーディングデモの準備
+- [ ] 「クリーンアーキテクチャの過剰適用」の失敗事例の資料準備
+
 ## 参考資料
 
 - 『Clean Architecture』Robert C. Martin
