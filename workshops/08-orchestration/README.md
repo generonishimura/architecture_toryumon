@@ -32,6 +32,33 @@
 - Dockerfile の書き方とベストプラクティス
 - マルチステージビルドによるイメージの軽量化
 
+```
+【コンテナ vs 仮想マシン】
+
+仮想マシン (VM):                    コンテナ:
+┌──────┐ ┌──────┐ ┌──────┐          ┌──────┐ ┌──────┐ ┌──────┐
+│ App  │ │ App  │ │ App  │          │ App  │ │ App  │ │ App  │
+│ Bins │ │ Bins │ │ Bins │          │ Bins │ │ Bins │ │ Bins │
+│Guest │ │Guest │ │Guest │          └──┬───┘ └──┬───┘ └──┬───┘
+│  OS  │ │  OS  │ │  OS  │             │        │        │
+└──┬───┘ └──┬───┘ └──┬───┘          ┌──┴────────┴────────┴──┐
+┌──┴────────┴────────┴──┐          │    コンテナランタイム     │
+│     ハイパーバイザ       │          │      (Docker)          │
+├────────────────────────┤          ├────────────────────────┤
+│       ホスト OS         │          │       ホスト OS         │
+└────────────────────────┘          └────────────────────────┘
+
+VM: OSごと仮想化 → 重い（GB単位）、起動に分単位
+コンテナ: プロセスを隔離 → 軽い（MB単位）、起動に秒単位
+```
+
+> **Dockerfile ベストプラクティス**:
+> 1. **軽量ベースイメージを使う**: `node:20` ではなく `node:20-alpine`（900MB→150MB）
+> 2. **レイヤーキャッシュを活用**: `package.json` を先にCOPYし `npm ci` → ソースコードはその後
+> 3. **マルチステージビルド**: ビルド用ステージと実行用ステージを分ける
+> 4. **rootユーザーで実行しない**: `USER node` で権限を制限
+> 5. **`.dockerignore` を使う**: `node_modules`, `.git`, `.env` を除外
+
 #### Node.js アプリケーションのコンテナ化
 
 ```dockerfile
@@ -59,6 +86,64 @@ CMD ["node", "dist/main.js"]
 - 複数コンテナの定義と管理
 - ローカル開発環境での活用
 - サービス間ネットワークとボリューム管理
+
+```yaml
+# docker-compose.yml の実践例
+version: '3.8'
+
+services:
+  order-service:
+    build: ./services/order
+    ports:
+      - "3001:3000"
+    environment:
+      - DATABASE_URL=postgresql://user:pass@order-db:5432/orders
+      - INVENTORY_SERVICE_URL=http://inventory-service:3000
+    depends_on:
+      order-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  inventory-service:
+    build: ./services/inventory
+    ports:
+      - "3002:3000"
+    environment:
+      - DATABASE_URL=postgresql://user:pass@inventory-db:5432/inventory
+
+  order-db:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=pass
+      - POSTGRES_DB=orders
+    volumes:
+      - order-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  inventory-db:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=pass
+      - POSTGRES_DB=inventory
+    volumes:
+      - inventory-data:/var/lib/postgresql/data
+
+volumes:
+  order-data:
+  inventory-data:
+```
+
+> **Docker Compose のポイント**: `depends_on` だけではDBの起動完了を待てません。`healthcheck` + `condition: service_healthy` を組み合わせることで、DBが実際にクエリを受け付けられる状態になってからアプリを起動できます。
 
 ### 3. コンテナオーケストレーション（30分）
 
@@ -150,6 +235,41 @@ spec:
   - Blue-Green デプロイメント
   - カナリアリリース
 - 各戦略のトレードオフ
+
+```
+【デプロイ戦略の比較】
+
+ローリングアップデート:
+  v1 v1 v1 → v2 v1 v1 → v2 v2 v1 → v2 v2 v2
+  ・段階的にPodを入れ替え
+  ・追加リソース不要
+  ・一時的にv1とv2が混在
+
+Blue-Green:
+  [Blue: v1] ← トラフィック
+  [Green: v2] (待機)
+       ↓ 切り替え
+  [Blue: v1] (待機)
+  [Green: v2] ← トラフィック
+  ・瞬時に切り替え可能
+  ・2倍のリソースが必要
+  ・ロールバックが高速
+
+カナリア:
+  v1 v1 v1 v1 ← 95%のトラフィック
+  v2           ← 5%のトラフィック（様子見）
+       ↓ 問題なければ徐々に拡大
+  v2 v2 v2 v2 ← 100%
+  ・リスクを最小化できる
+  ・段階的な検証が可能
+  ・設定が複雑
+```
+
+| 戦略 | リソースコスト | ロールバック速度 | リスク | 推奨場面 |
+|------|:---:|:---:|:---:|------|
+| ローリング | 低 | 中 | 中 | 一般的なWebサービス |
+| Blue-Green | 高 | 高速 | 低 | ダウンタイムゼロが必須 |
+| カナリア | 中 | 高速 | 最低 | 大規模ユーザー向けサービス |
 
 #### CI/CD パイプラインの例
 

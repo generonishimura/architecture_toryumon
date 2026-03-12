@@ -31,11 +31,98 @@
 - 「どのクラスを生成するか」の判断をカプセル化
 - TypeScript例：通知チャネル（Email / Slack / SMS）のファクトリ
 
+```typescript
+// Factory パターン: 生成ロジックをカプセル化
+interface Notification {
+  send(to: string, message: string): Promise<void>;
+}
+
+class EmailNotification implements Notification {
+  async send(to: string, message: string): Promise<void> {
+    // SMTP経由でメール送信
+  }
+}
+
+class SlackNotification implements Notification {
+  async send(to: string, message: string): Promise<void> {
+    // Slack API経由で送信
+  }
+}
+
+// Factoryが「どのクラスを使うか」の判断を引き受ける
+class NotificationFactory {
+  static create(channel: 'email' | 'slack' | 'sms'): Notification {
+    switch (channel) {
+      case 'email': return new EmailNotification();
+      case 'slack': return new SlackNotification();
+      case 'sms':   return new SmsNotification();
+    }
+  }
+}
+
+// 利用側は具象クラスを知らなくてよい
+const notification = NotificationFactory.create('email');
+await notification.send('user@example.com', 'Hello!');
+```
+
+> **Factory vs コンストラクタ直接呼び出し**: `new EmailNotification()` を直接書くのと何が違うのか？Factoryを使うと、利用側は具象クラスに依存しなくなります。通知手段の追加・変更があってもFactoryクラスだけ修正すればよく、利用側のコードは変わりません。
+
 #### Builder
 
 - 複雑なオブジェクトを段階的に構築する
 - メソッドチェインによる可読性の向上
 - TypeScript例：クエリビルダー、設定オブジェクトの構築
+
+```typescript
+// Builder パターン: 複雑なオブジェクトを段階的に構築
+class QueryBuilder {
+  private _table: string = '';
+  private _conditions: string[] = [];
+  private _orderBy: string | null = null;
+  private _limit: number | null = null;
+
+  from(table: string): this {
+    this._table = table;
+    return this; // this を返すことでメソッドチェインが可能
+  }
+
+  where(condition: string): this {
+    this._conditions.push(condition);
+    return this;
+  }
+
+  orderBy(column: string, direction: 'ASC' | 'DESC' = 'ASC'): this {
+    this._orderBy = `${column} ${direction}`;
+    return this;
+  }
+
+  limit(count: number): this {
+    this._limit = count;
+    return this;
+  }
+
+  build(): string {
+    let query = `SELECT * FROM ${this._table}`;
+    if (this._conditions.length > 0) {
+      query += ` WHERE ${this._conditions.join(' AND ')}`;
+    }
+    if (this._orderBy) query += ` ORDER BY ${this._orderBy}`;
+    if (this._limit) query += ` LIMIT ${this._limit}`;
+    return query;
+  }
+}
+
+// メソッドチェインで直感的に組み立てられる
+const query = new QueryBuilder()
+  .from('orders')
+  .where('status = "COMPLETED"')
+  .where('created_at > "2025-01-01"')
+  .orderBy('created_at', 'DESC')
+  .limit(10)
+  .build();
+```
+
+> **Builderを使うべきサイン**: コンストラクタの引数が4つ以上ある、オプション引数が多い、構築の順序に柔軟性が欲しい — これらの場合にBuilderパターンが効果的です。
 
 ### 3. 構造に関するパターン（20分）
 
@@ -45,10 +132,79 @@
 - 外部ライブラリやレガシーコードとの接続に活用
 - TypeScript例：外部決済APIのアダプター
 
+```typescript
+// Adapter パターン: 外部APIのインターフェースを自分のシステムに合わせて変換
+
+// 自分のシステムが期待するインターフェース
+interface PaymentGateway {
+  charge(amount: number, currency: string, token: string): Promise<{ transactionId: string }>;
+}
+
+// 外部のStripe API（自分のシステムとはインターフェースが違う）
+class StripeApi {
+  async createCharge(params: {
+    amount: number;
+    currency: string;
+    source: string;
+    description?: string;
+  }): Promise<{ id: string; status: string }> {
+    // Stripe APIの実際の呼び出し
+    return { id: 'ch_xxx', status: 'succeeded' };
+  }
+}
+
+// Adapter: Stripe APIを自分のインターフェースに変換
+class StripePaymentAdapter implements PaymentGateway {
+  constructor(private readonly stripe: StripeApi) {}
+
+  async charge(amount: number, currency: string, token: string) {
+    const result = await this.stripe.createCharge({
+      amount,
+      currency,
+      source: token,
+    });
+    return { transactionId: result.id };
+  }
+}
+
+// 将来PayPalに切り替える場合も、PayPalPaymentAdapter を作るだけ
+```
+
+> **Adapterが必要なサイン**: 外部API/ライブラリを使うとき、「自分のコードにそのAPIの型やメソッド名が広がっている」なら、Adapterで隔離すべきです。第6回（クリーンアーキテクチャ）では、この考え方をシステム全体に適用します。
+
 #### Facade
 
 - 複雑なサブシステムに対するシンプルなインターフェースを提供
 - TypeScript例：注文処理のファサード（在庫確認 + 決済 + 配送手配）
+
+```typescript
+// Facade パターン: 複数のサブシステムをまとめたシンプルなインターフェース
+
+class OrderFacade {
+  constructor(
+    private readonly inventory: InventoryService,
+    private readonly payment: PaymentGateway,
+    private readonly shipping: ShippingService,
+    private readonly notification: NotificationService
+  ) {}
+
+  // 利用側はこの1メソッドを呼ぶだけでよい
+  async placeOrder(order: OrderRequest): Promise<OrderResult> {
+    // 1. 在庫確認
+    await this.inventory.checkAndReserve(order.items);
+    // 2. 決済
+    const tx = await this.payment.charge(order.totalAmount, 'JPY', order.paymentToken);
+    // 3. 配送手配
+    const tracking = await this.shipping.arrange(order.shippingAddress, order.items);
+    // 4. 通知
+    await this.notification.send(order.customerId, `注文完了: ${tracking.trackingNumber}`);
+
+    return { transactionId: tx.transactionId, trackingNumber: tracking.trackingNumber };
+  }
+}
+```
+
+> **Facade vs Service**: 「それって普通のサービスクラスでは？」と思うかもしれません。Facadeの本質は「複雑さを隠す」ことです。サブシステムの詳細を知らなくても、Facadeを通じて操作できるようにするのがポイントです。
 
 ### 4. 振る舞いに関するパターン（30分）
 
@@ -65,6 +221,48 @@
 - TypeScript例：注文状態の変化に応じた通知
 - EventEmitter / RxJS との関連
 
+```typescript
+// Observer パターン: 状態変化を購読者に自動通知
+
+interface OrderEventListener {
+  onOrderStatusChanged(orderId: string, newStatus: string): void;
+}
+
+class OrderStatusNotifier {
+  private listeners: OrderEventListener[] = [];
+
+  addListener(listener: OrderEventListener): void {
+    this.listeners.push(listener);
+  }
+
+  notify(orderId: string, newStatus: string): void {
+    for (const listener of this.listeners) {
+      listener.onOrderStatusChanged(orderId, newStatus);
+    }
+  }
+}
+
+// 購読者: メール通知
+class EmailNotifier implements OrderEventListener {
+  onOrderStatusChanged(orderId: string, newStatus: string): void {
+    // 顧客にステータス変更メールを送信
+  }
+}
+
+// 購読者: 在庫管理
+class InventoryUpdater implements OrderEventListener {
+  onOrderStatusChanged(orderId: string, newStatus: string): void {
+    if (newStatus === 'CANCELLED') {
+      // 在庫を戻す
+    }
+  }
+}
+
+// 新しい購読者を追加しても、通知元（OrderStatusNotifier）のコードは変わらない
+```
+
+> **Node.js での Observer**: Node.js の `EventEmitter` はまさにObserverパターンの実装です。第9回（イベント駆動）では、これをサービス間に拡張した形を学びます。
+
 #### Repository
 
 - データアクセスのロジックを抽象化する
@@ -80,6 +278,32 @@
   - ミドルウェアパターン（Express / Koa）
   - プラグインパターン（各種ライブラリ）
   - DIコンテナ（NestJS）
+
+#### パターンを適用すべき「コードの匂い」チェックリスト
+
+| コードの匂い | 適用候補のパターン |
+|------------|----------------|
+| `if/else` や `switch` が長大で、新しいケースの追加が頻繁 | Strategy, Factory |
+| オブジェクト生成のロジックが複雑で、あちこちにコピーされている | Factory, Builder |
+| 外部API/ライブラリの呼び出しがビジネスロジックに直接埋まっている | Adapter, Repository |
+| ある状態変化に対して、複数の処理を連鎖的に実行したい | Observer |
+| 複数のサブシステムを組み合わせた処理が散在している | Facade |
+
+#### Node.js / TypeScript エコシステムでのパターンの例
+
+```
+Express ミドルウェア    → Chain of Responsibility パターン
+  app.use(cors());     → リクエストが複数のハンドラを順に通過
+  app.use(auth());
+  app.use(logging());
+
+NestJS の DI           → Dependency Injection + Factory パターン
+  @Injectable()        → フレームワークがオブジェクトの生成と注入を管理
+
+Prisma Client          → Repository + Builder パターン
+  prisma.user.findMany({ where: {...} })
+                       → メソッドチェインでクエリを構築
+```
 
 ## コード例の概要
 
