@@ -23,6 +23,21 @@
 - Robert C. Martin『Clean Architecture』の核心メッセージ
 - 関連するアーキテクチャパターン：Hexagonal / Onion / Clean
 
+> **3つのアーキテクチャパターンの比較**: Hexagonal（ポート&アダプター）、Onion、Clean Architecture は表現が違いますが、核心は同じです。
+>
+> ```
+> 共通の原則:
+> 1. ビジネスロジックを中心に据える
+> 2. 外部（DB、API、UI）は「詳細」であり、交換可能にする
+> 3. 依存は常に内側（ビジネスロジック）に向かう
+>
+> Hexagonal:  「ポート（インターフェース）」と「アダプター（実装）」で表現
+> Onion:      層を玉ねぎの皮のように表現。ドメイン → サービス → インフラ
+> Clean:      同心円で4層に分けて表現。上記2つの統合・整理版
+> ```
+>
+> 本ワークショップではClean Architecture の用語を使いますが、思想はどれも同じです。
+
 ### 2. クリーンアーキテクチャの全体像（20分）
 
 #### 同心円モデル
@@ -111,11 +126,64 @@ src/
 - NestJSのDIコンテナ
 - 手動DIによるシンプルな構成
 
+```typescript
+// 手動DI: アプリケーション起動時に依存関係を組み立てる（Composition Root）
+// src/main.ts
+
+import { PrismaClient } from '@prisma/client';
+import { PrismaOrderRepository } from './infrastructure/persistence/prisma-order-repository';
+import { PrismaProductRepository } from './infrastructure/persistence/prisma-product-repository';
+import { EventBusPublisher } from './infrastructure/events/event-bus-publisher';
+import { PlaceOrderUseCase } from './application/use-cases/place-order';
+import { OrderController } from './presentation/controllers/order-controller';
+
+// 依存関係の組み立て（ここだけが全レイヤーを知っている）
+const prisma = new PrismaClient();
+const orderRepo = new PrismaOrderRepository(prisma);
+const productRepo = new PrismaProductRepository(prisma);
+const eventPublisher = new EventBusPublisher();
+
+const placeOrderUseCase = new PlaceOrderUseCase(orderRepo, productRepo, eventPublisher);
+const orderController = new OrderController(placeOrderUseCase);
+
+// Express にルーティングを設定
+app.post('/orders', (req, res) => orderController.create(req, res));
+```
+
+> **手動DI vs DIコンテナ**: サービス数が少ない（〜10程度）なら手動DIで十分です。サービス数が増えてきたらNestJSのDIコンテナが有効です。大事なのは「DI自体を使うこと」であって、コンテナの有無ではありません。
+
 ### 5. よくある誤解と実践上の注意（10分）
 
 - 「クリーンアーキテクチャ = ディレクトリ構造」ではない
 - 小規模プロジェクトでの適用度合い — 全レイヤーが必要とは限らない
 - 「完璧なクリーンアーキテクチャ」より「依存の方向を意識する」ことが重要
+
+#### 規模に応じた適用レベル
+
+```
+レベル1: 最小限（小規模プロジェクト）
+  「ビジネスロジックにフレームワーク/DB依存のコードを書かない」だけ意識
+  → 2層（ドメイン+アプリ / インフラ+プレゼン）で十分
+
+レベル2: 標準（中規模プロジェクト）
+  4層をきちんと分離し、リポジトリインターフェースを使う
+  → 本講義で学ぶ構成
+
+レベル3: 厳格（大規模・長寿命プロジェクト）
+  モジュール単位でパッケージを分離し、ビルド時に依存方向を強制
+  → 大規模チーム向け
+```
+
+#### クリーンアーキテクチャの各レイヤーのテスト戦略
+
+| レイヤー | テスト種別 | 特徴 |
+|---------|----------|------|
+| ドメイン層 | ユニットテスト | 外部依存なし。純粋なロジックのテスト。最も高速 |
+| アプリケーション層 | ユニットテスト（モック使用） | リポジトリをモックに差し替えてユースケースをテスト |
+| インフラストラクチャ層 | 統合テスト | 実際のDB（テスト用）を使った永続化のテスト |
+| プレゼンテーション層 | E2Eテスト / APIテスト | HTTPリクエスト→レスポンスの全体フローをテスト |
+
+> **テストピラミッドとの関係**: ドメイン層のテストが最も多く・高速に、E2Eテストが最も少なく・低速に。クリーンアーキテクチャはこのテストピラミッドを自然に実現します。
 
 ## コード例の概要
 

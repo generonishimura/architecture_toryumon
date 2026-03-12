@@ -23,6 +23,69 @@
 - ポリモーフィズム — 同じインターフェースで異なる振る舞いを実現する
 - 「継承よりもコンポジション」という現代的な考え方
 
+#### カプセル化の具体例
+
+カプセル化とは「内部の実装詳細を隠し、外部には安全な操作だけを公開する」ことです。
+
+```typescript
+// Bad: 内部状態が丸見え — 不正な状態を許してしまう
+class BankAccount {
+  public balance: number = 0;
+}
+
+const account = new BankAccount();
+account.balance = -1000; // 残高がマイナスに！ビジネスルール違反
+
+// Good: カプセル化によってビジネスルールを守る
+class BankAccount {
+  private _balance: number = 0;
+
+  get balance(): number {
+    return this._balance;
+  }
+
+  deposit(amount: number): void {
+    if (amount <= 0) throw new Error('入金額は正の数である必要があります');
+    this._balance += amount;
+  }
+
+  withdraw(amount: number): void {
+    if (amount <= 0) throw new Error('出金額は正の数である必要があります');
+    if (amount > this._balance) throw new Error('残高不足です');
+    this._balance -= amount;
+  }
+}
+```
+
+カプセル化のポイントは「クラスの利用者がルールを知らなくても、不正な状態にならない」こと。`balance` を直接変更させず、`deposit()` / `withdraw()` 経由でのみ操作させることで、残高がマイナスになるバグを**構造的に**防げます。
+
+#### 「継承よりコンポジション」の実例
+
+継承は強力ですが、親子関係が密結合を生みます。TypeScriptではコンポジション（委譲）で柔軟性を保つことが推奨されます。
+
+```typescript
+// 継承の問題: FlyingSwimmingAnimal を作れない（多重継承不可）
+class Animal { move(): void { /* ... */ } }
+class FlyingAnimal extends Animal { fly(): void { /* ... */ } }
+class SwimmingAnimal extends Animal { swim(): void { /* ... */ } }
+
+// コンポジション: 機能を自由に組み合わせられる
+interface Flyable { fly(): void; }
+interface Swimmable { swim(): void; }
+
+class Duck implements Flyable, Swimmable {
+  constructor(
+    private readonly flyBehavior: Flyable,
+    private readonly swimBehavior: Swimmable
+  ) {}
+
+  fly(): void { this.flyBehavior.fly(); }
+  swim(): void { this.swimBehavior.swim(); }
+}
+```
+
+> **実務での指針**: 「is-a（〜は〜である）」の関係が本当に成立する場合のみ継承を使い、「has-a（〜は〜を持つ）」の関係にはコンポジションを使いましょう。迷ったらコンポジションを選ぶのが安全です。
+
 ### 2. SOLID原則（50分）
 
 #### S — 単一責任の原則 (Single Responsibility Principle)
@@ -31,11 +94,53 @@
 - 「責務」の粒度をどう判断するか
 - TypeScript例：レポート生成と出力フォーマットの分離
 
+> **よくある質問: 「責務」の粒度はどう決めるの？**
+> Robert C. Martin は「変更の理由」で判断することを提案しています。例えば `UserService` に「ユーザー作成」「メール送信」「ログ出力」が含まれている場合、メールの仕様変更・ログフォーマットの変更・ユーザー登録ロジックの変更という3つの異なる理由で変更が発生します。変更の理由が複数あるクラスは分割の候補です。
+>
+> ただし、責務を細分化しすぎると逆にクラス数が爆発して理解しにくくなります。「今このコードに3つ以上の変更理由があるか？」を目安にするのが実用的です。
+
 #### O — 開放閉鎖の原則 (Open/Closed Principle)
 
 - 拡張に対して開いている、修正に対して閉じている
 - Strategy パターンによる拡張ポイントの設計
 - TypeScript例：割引計算ロジックの拡張
+
+```typescript
+// Bad: 新しい割引タイプを追加するたびに既存コードを修正する必要がある
+class PriceCalculator {
+  calculate(basePrice: number, discountType: string): number {
+    if (discountType === 'member') return basePrice * 0.9;
+    if (discountType === 'sale') return basePrice * 0.8;
+    if (discountType === 'coupon') return basePrice * 0.85;
+    return basePrice;
+  }
+}
+
+// Good: 新しい割引を追加しても既存コードを変更しない
+interface DiscountStrategy {
+  apply(basePrice: number): number;
+}
+
+class MemberDiscount implements DiscountStrategy {
+  apply(basePrice: number): number { return basePrice * 0.9; }
+}
+
+class SaleDiscount implements DiscountStrategy {
+  apply(basePrice: number): number { return basePrice * 0.8; }
+}
+
+// 新しい割引を追加 → 新クラスを作るだけ。既存コードの修正は不要
+class CouponDiscount implements DiscountStrategy {
+  constructor(private readonly rate: number) {}
+  apply(basePrice: number): number { return basePrice * (1 - this.rate); }
+}
+
+class PriceCalculator {
+  calculate(basePrice: number, discount: DiscountStrategy): number {
+    return discount.apply(basePrice);
+  }
+}
+```
 
 #### L — リスコフの置換原則 (Liskov Substitution Principle)
 
@@ -43,11 +148,84 @@
 - 振る舞いの互換性と事前条件・事後条件
 - TypeScript例：不適切な継承と正しい設計の比較
 
+```typescript
+// Bad: 有名な「正方形・長方形問題」
+class Rectangle {
+  constructor(protected width: number, protected height: number) {}
+
+  setWidth(w: number): void { this.width = w; }
+  setHeight(h: number): void { this.height = h; }
+  getArea(): number { return this.width * this.height; }
+}
+
+class Square extends Rectangle {
+  // 正方形は幅と高さが同じ → setWidth で height も変えてしまう
+  setWidth(w: number): void { this.width = w; this.height = w; }
+  setHeight(h: number): void { this.width = h; this.height = h; }
+}
+
+// Rectangle を期待するコードで Square を使うと壊れる
+function doubleWidth(rect: Rectangle): void {
+  const originalHeight = rect.getArea() / rect.getArea(); // ←意図と違う結果に
+  rect.setWidth(rect.getArea() / originalHeight * 2);
+}
+
+// Good: 共通インターフェースで本当に互換性のある抽象を定義
+interface Shape {
+  getArea(): number;
+}
+
+class Rectangle implements Shape {
+  constructor(private width: number, private height: number) {}
+  getArea(): number { return this.width * this.height; }
+}
+
+class Square implements Shape {
+  constructor(private side: number) {}
+  getArea(): number { return this.side * this.side; }
+}
+```
+
+> **実務での教訓**: LSPに違反しているサインは「子クラスで親のメソッドが意味をなさない」「子クラスに型チェック（`instanceof`）が必要になる」場合です。こうしたケースでは、継承ではなくインターフェースで共通部分を抽出しましょう。
+
 #### I — インターフェース分離の原則 (Interface Segregation Principle)
 
 - クライアントが使わないメソッドへの依存を強制しない
 - 大きなインターフェースを小さく分割する
 - TypeScript例：`interface Readable` と `interface Writable` の分離
+
+```typescript
+// Bad: 1つの大きなインターフェース — 読み取り専用の用途でも write を実装させられる
+interface FileHandler {
+  read(path: string): string;
+  write(path: string, content: string): void;
+  delete(path: string): void;
+  getPermissions(path: string): string[];
+}
+
+// Good: 用途ごとに分割 — 必要なインターフェースだけ実装すればよい
+interface Readable {
+  read(path: string): string;
+}
+
+interface Writable {
+  write(path: string, content: string): void;
+}
+
+interface Deletable {
+  delete(path: string): void;
+}
+
+// 読み取り専用のクライアントは Readable だけに依存
+class ReportGenerator {
+  constructor(private readonly reader: Readable) {}
+
+  generate(path: string): string {
+    const data = this.reader.read(path);
+    return `Report: ${data}`;
+  }
+}
+```
 
 #### D — 依存性逆転の原則 (Dependency Inversion Principle)
 
@@ -55,11 +233,51 @@
 - 抽象（インターフェース）に依存する
 - TypeScript例：リポジトリインターフェースによるDB依存の逆転
 
+> **なぜ「逆転」と呼ぶのか？**
+> 通常、ビジネスロジック（上位）がDBアクセス（下位）を直接呼び出します。この場合、DBの変更がビジネスロジックに波及します。DIPでは**上位側がインターフェースを定義し、下位側がそれを実装する**ことで、依存の方向が逆転します。
+>
+> ```
+> 【通常の依存】
+> OrderService → PrismaClient（上位が下位に依存）
+>
+> 【依存性逆転後】
+> OrderService → OrderRepository（interface）← PrismaOrderRepository
+> （上位は抽象に依存、下位が抽象を実装）
+> ```
+>
+> これにより、テスト時にはインメモリ実装に差し替えられ、将来DBを変更しても上位のコードは影響を受けません。この原則は第6回（クリーンアーキテクチャ）の核心概念になるため、しっかり理解しておきましょう。
+
 ### 3. 実務での適用（15分）
 
 - 過度な抽象化の罠 — YAGNI（You Ain't Gonna Need It）との折り合い
 - テスタビリティと設計品質の関係
 - 既存コードのリファクタリングアプローチ
+
+#### SOLID原則と「ちょうどよい設計」のバランス
+
+SOLID原則は絶対的なルールではなく、設計のガイドラインです。以下の判断基準を持っておくと、実務で「やりすぎ」を避けられます。
+
+| 状況 | 推奨アプローチ |
+|------|--------------|
+| 変更が見込まれる箇所 | SOLID原則をしっかり適用する |
+| 安定していて変更されない箇所 | シンプルさを優先し、過度に抽象化しない |
+| プロトタイプ・実験的なコード | まず動くものを作り、安定したら設計を改善する |
+| チームの理解度が低い場合 | 段階的に導入し、まずSRP（単一責任）から始める |
+
+> **実務Tip**: リファクタリングの順番として「①まずSRP（責務の分離）→ ②次にDIP（依存の逆転）→ ③必要に応じてOCP（拡張ポイントの設計）」の順で取り組むと、段階的に設計品質を改善できます。一度にすべてを適用しようとしないことが大切です。
+
+#### テストしやすいコード = 設計品質の高いコード
+
+テストの書きやすさは設計品質のバロメーターです。テストが書きにくいコードには、多くの場合以下の設計上の問題があります。
+
+```
+テストしにくい                          設計上の問題
+─────────────────────────────────────────────────────
+外部API/DBに直接依存している    →  依存性逆転の原則（DIP）の違反
+1つのメソッドが長すぎる          →  単一責任の原則（SRP）の違反
+グローバル状態を参照している     →  カプセル化の不足
+具象クラスに依存している        →  インターフェースの欠如
+```
 
 ## コード例の概要
 
