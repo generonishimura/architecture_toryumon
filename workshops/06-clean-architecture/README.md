@@ -20,7 +20,7 @@
 
 - ソフトウェアの変更コストは時間とともに増大する
 - アーキテクチャの目的 = **変更容易性**の確保
-- Robert C. Martin『Clean Architecture』の核心メッセージ
+- Robert C. Martin『Clean Architecture』の中心となる主張
 - 関連するアーキテクチャパターン：Hexagonal / Onion / Clean
 
 ### 2. クリーンアーキテクチャの全体像（20分）
@@ -53,14 +53,14 @@
 
 - **内側のレイヤーは外側のレイヤーを知らない**
 - 依存は常に内側に向かう
-- 内側のレイヤーが外側の機能を使いたい場合は **インターフェース（ポート）** を定義し、外側が実装する
+- 内側のレイヤーから外側の機能を使う場合は、内側でインターフェース（ポート）を定義し、外側がそれを実装する
 
 ### 3. 各レイヤーの役割（30分）
 
 #### Entities（ドメイン層）
 
 - ビジネスルールをカプセル化したエンティティと値オブジェクト
-- 第5回（DDD）で学んだドメインモデルがここに位置する
+- 第5回（DDD）で学んだドメインモデルをここに置く
 - フレームワーク、DB、HTTPに一切依存しない
 
 #### Use Cases（アプリケーション層）
@@ -72,17 +72,17 @@
 
 #### Interface Adapters（インターフェースアダプター層）
 
-- ユースケースと外部世界の橋渡し
+- ユースケースと外部（HTTPやDBなど）をつなぐ
 - Controller：HTTPリクエストをユースケースの入力に変換
 - Presenter：ユースケースの出力をHTTPレスポンスに変換
 - Gateway：リポジトリインターフェースの実装
 
 #### Frameworks & Drivers（フレームワーク・ドライバー層）
 
-- Express / Prisma 本体 / 外部APIの SDK・HTTP ライブラリ等
+- Express / Prisma本体 / 外部APIのSDK・HTTPライブラリ等
 - 最も「詳細」で最も「交換可能」なレイヤー
 
-### 4. Node.js / TypeScript での実装（25分）
+### 4. Node.js / TypeScriptでの実装（25分）
 
 #### ディレクトリ構造
 
@@ -115,10 +115,11 @@ src/
 | Entities | domain/ | Order, Money, OrderRepository（interface） |
 | Use Cases | application/ | PlaceOrderUseCase, PlaceOrderInput / PlaceOrderOutput |
 | Interface Adapters | presentation/controllers/・presentation/routes/（入力側）、infrastructure/persistence/（出力側＝Gateway） | OrderController, ルートの定義, PrismaOrderRepository |
-| Frameworks & Drivers | src/main.ts、infrastructure/config/、Express・Prisma 本体 | Express アプリの起動と PrismaClient の生成（src/main.ts）、infrastructure/config/ |
+| Frameworks & Drivers | src/main.ts、infrastructure/config/、Express・Prisma本体 | Expressアプリの起動とPrismaClientの生成（src/main.ts）、infrastructure/config/ |
 
-- ディレクトリ名と同心円のレイヤー名は1対1に対応しない。infrastructure/ の中で、persistence/ は Interface Adapters、config/ は Frameworks & Drivers にあたる。external/ に置くクラスのうち、ユースケースが使うインターフェースを実装するクラス（例: 決済APIのクライアントの実装）は Interface Adapters の Gateway にあたる。そのクラスが呼び出す SDK や HTTP ライブラリ本体は Frameworks & Drivers にあたる。presentation/ の controllers/ と routes/ は、Interface Adapters の入力側にあたる。src/main.ts は Frameworks & Drivers にあたる
-- 本教材のコード例では、ユースケースが Output を return し、Controller がそれを HTTP レスポンスに変換している。原典では、ユースケースが Output Port（インターフェース）を呼び、Presenter がそれを実装する。小規模なアプリケーションなら return する方式で十分である
+ディレクトリ名と同心円のレイヤー名は、1対1には対応しない。infrastructure/の中では、persistence/がInterface Adapters、config/がFrameworks & Driversにあたる。external/には、外部APIのクライアントを置く。このうち、ユースケースが使うインターフェースを実装するクラス（例: 決済APIのクライアントの実装）は、Interface AdaptersのGatewayである。そのクラスが呼び出すSDKやHTTPライブラリ本体は、Frameworks & Driversに属する。presentation/のcontrollers/とroutes/は、Interface Adaptersの入力側にあたる。src/main.tsはFrameworks & Driversに含める。
+
+本教材のコード例では、ユースケースがOutputをreturnし、ControllerがそれをHTTPレスポンスに変換している。原典では、ユースケースがOutput Port（インターフェース）を呼び、Presenterがそれを実装する。小規模なアプリケーションなら、returnする方式で十分である。
 
 #### 依存性注入（DI）
 
@@ -126,7 +127,7 @@ src/
 - NestJSのDIコンテナ
 - 手動DIによるシンプルな構成
 
-手動DIでは、アプリケーションの入口（src/main.ts）で具体クラスを生成し、コンストラクタに渡して組み立てる。
+手動DIでは、アプリケーションのエントリーポイント（src/main.ts）で具体クラスを生成し、コンストラクタに渡して組み立てる。
 
 ```typescript
 // src/main.ts — コンポジションルート（依存を組み立てる唯一の場所）
@@ -159,16 +160,16 @@ app.post('/orders', (req, res, next) => {
 app.listen(3000);
 ```
 
-外側の具体クラス（PrismaOrderRepository など）を知っているのは main.ts だけである。domain/ と application/ は、インターフェースにだけ依存する。
+外側の具体クラス（PrismaOrderRepositoryなど）をimportして生成するのは、main.tsだけである。domain/とapplication/は、インターフェースにだけ依存する。
 
-- prisma.config.ts にも import 'dotenv/config' を書くが、これが効くのは Prisma CLI（npx prisma migrate など）を実行するときだけである。アプリを npx tsx src/main.ts で実行するときは、main.ts の先頭の import 'dotenv/config' が .env を読み込む
-- Express を TypeScript で使うときは、express に加えて型定義の @types/express も必要である（npm install express と npm install -D @types/express）
+- prisma.config.tsにもimport 'dotenv/config'を書くが、この記述で.envが読み込まれるのは、Prisma CLI（npx prisma migrateなど）を実行するときだけである。アプリをnpx tsx src/main.tsで実行するときは、main.tsの先頭のimport 'dotenv/config'が.envを読み込む
+- ExpressをTypeScriptで使うときは、expressに加えて型定義の@types/expressも必要である（npm install expressとnpm install -D @types/express）
 
 ### 5. よくある誤解と実践上の注意（10分）
 
 - 「クリーンアーキテクチャ = ディレクトリ構造」ではない
-- 小規模プロジェクトでの適用度合い — 全レイヤーが必要とは限らない
-- 「完璧なクリーンアーキテクチャ」より「依存の方向を意識する」ことが重要
+- 小規模プロジェクトでの適用度合い：全レイヤーが必要とは限らない
+- 「完璧なクリーンアーキテクチャ」を目指すより、「依存の方向を意識する」ことを優先する
 
 ## コード例の概要
 
@@ -280,9 +281,9 @@ class PrismaOrderRepository implements OrderRepository {
 
 ## ディスカッションテーマ
 
-1. **レイヤーの粒度** — 4つのレイヤーすべてが常に必要か？簡略化する場合、どこを省くか？
-2. **DI の手動 vs フレームワーク** — NestJSのDIコンテナを使うべきか、手動DIで十分か？
-3. **テスト戦略** — クリーンアーキテクチャにおいて、各レイヤーのテストはどう書くべきか？
+1. **レイヤーの粒度**：4つのレイヤーすべてが常に必要か？簡略化する場合、どこを省くか？
+2. **DIの手動 vs フレームワーク**：NestJSのDIコンテナを使うべきか、手動DIで十分か？
+3. **テスト戦略**：クリーンアーキテクチャにおいて、各レイヤーのテストはどう書くべきか？
 
 ## 課題
 
@@ -296,7 +297,8 @@ class PrismaOrderRepository implements OrderRepository {
 
 第5回の課題で設計した「ホテル予約システム」のドメインモデルに、クリーンアーキテクチャのレイヤー構造を適用してください。
 
-成果物：
+成果物として、次の4つを提出してください。
+
 - ディレクトリ構造の設計
 - 「部屋を予約する」ユースケースクラスの実装
 - リポジトリインターフェースの定義とインメモリ実装
@@ -310,7 +312,7 @@ class PrismaOrderRepository implements OrderRepository {
 
 - 『Clean Architecture』Robert C. Martin
 - 『ソフトウェアアーキテクチャの基礎』Mark Richards, Neal Ford
-- [The Clean Architecture](https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html) — Uncle Bob's Blog
+- [The Clean Architecture](https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html)：Uncle Bob's Blog
 
 ## 次回との接続
 
