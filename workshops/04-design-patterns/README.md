@@ -49,6 +49,12 @@ class SlackNotification implements Notification {
   }
 }
 
+class SmsNotification implements Notification {
+  async send(to: string, message: string): Promise<void> {
+    // SMS送信APIを呼び出す
+  }
+}
+
 // Factoryが「どのクラスを使うか」の判断を引き受ける
 class NotificationFactory {
   static create(channel: 'email' | 'slack' | 'sms'): Notification {
@@ -65,7 +71,9 @@ const notification = NotificationFactory.create('email');
 await notification.send('user@example.com', 'Hello!');
 ```
 
-> **Factory vs コンストラクタ直接呼び出し**: `new EmailNotification()` を直接書くのと何が違うのか？Factoryを使うと、利用側は具象クラスに依存しなくなります。通知手段の追加・変更があってもFactoryクラスだけ修正すればよく、利用側のコードは変わりません。
+> **Factoryとコンストラクタの直接呼び出しの違い**：`new EmailNotification()` を利用側に直接書く場合と比べると、Factoryを使えば利用側は具象クラスに依存しなくなります。通知手段を追加・変更するときに修正するのはFactoryクラスだけで、利用側のコードは変わりません。
+
+> **この例について**：上のNotificationFactoryは、staticメソッドの中で生成するクラスを選ぶ「Simple Factory」と呼ばれる形で、GoFの23パターンには含まれません。GoFのFactory Methodは、生成メソッド（例：`createNotification()`）を抽象クラスに宣言し、どのクラスを生成するかをサブクラスがオーバーライドして決める形です。Abstract Factoryは、関連する複数のオブジェクト（例：メール用の送信クラスとテンプレートクラス）をまとめて生成するファクトリのインターフェースを用意する形です。
 
 #### Builder
 
@@ -122,7 +130,7 @@ const query = new QueryBuilder()
   .build();
 ```
 
-> **Builderを使うべきサイン**: コンストラクタの引数が4つ以上ある、オプション引数が多い、構築の順序に柔軟性が欲しい — これらの場合にBuilderパターンが効果的です。
+> **Builderを使う目安**：コンストラクタの引数が4つ以上ある場合、省略できる引数が多い場合、組み立てる順序を呼び出し側で変えたい場合に、Builderパターンを使います。
 
 ### 3. 構造に関するパターン（20分）
 
@@ -170,7 +178,7 @@ class StripePaymentAdapter implements PaymentGateway {
 // 将来PayPalに切り替える場合も、PayPalPaymentAdapter を作るだけ
 ```
 
-> **Adapterが必要なサイン**: 外部API/ライブラリを使うとき、「自分のコードにそのAPIの型やメソッド名が広がっている」なら、Adapterで隔離すべきです。第6回（クリーンアーキテクチャ）では、この考え方をシステム全体に適用します。
+> **Adapterが必要になる目安**：外部APIやライブラリを使っていて、自分のコードのあちこちにそのAPIの型やメソッド名が書かれているなら、Adapterを作ります。そのAPIを呼ぶコードは、Adapterの中だけにまとめます。第6回（クリーンアーキテクチャ）では、この考え方をシステム全体に適用します。
 
 #### Facade
 
@@ -204,7 +212,7 @@ class OrderFacade {
 }
 ```
 
-> **Facade vs Service**: 「それって普通のサービスクラスでは？」と思うかもしれません。Facadeの本質は「複雑さを隠す」ことです。サブシステムの詳細を知らなくても、Facadeを通じて操作できるようにするのがポイントです。
+> **Facadeとサービスクラスの違い**：「普通のサービスクラスと同じでは？」と思うかもしれません。Facadeの目的は、複数のサブシステムを呼び出す手順を1か所にまとめ、利用側から見えなくすることです。利用側は在庫・決済・配送・通知の各サービスの使い方を知らなくても、`placeOrder()` を呼ぶだけで注文を処理できます。
 
 ### 4. 振る舞いに関するパターン（20分）
 
@@ -261,7 +269,7 @@ class InventoryUpdater implements OrderEventListener {
 // 新しい購読者を追加しても、通知元（OrderStatusNotifier）のコードは変わらない
 ```
 
-> **Node.js での Observer**: Node.js の `EventEmitter` はまさにObserverパターンの実装です。第9回（イベント駆動）では、これをサービス間に拡張した形を学びます。
+> **Node.jsでのObserver**：Node.jsの `EventEmitter` は、Observerパターンを実装したクラスです。第9回（イベント駆動）では、同じ考え方をサービス間の通知に使う形を学びます。
 
 ### 5. GoF以外の実務パターン：Repository（15分）
 
@@ -286,7 +294,7 @@ class InventoryUpdater implements OrderEventListener {
 |------------|----------------|
 | `if/else` や `switch` が長大で、新しいケースの追加が頻繁 | Strategy, Factory |
 | オブジェクト生成のロジックが複雑で、あちこちにコピーされている | Factory, Builder |
-| 外部API/ライブラリの呼び出しがビジネスロジックに直接埋まっている | Adapter, Repository |
+| 外部APIやライブラリの呼び出しが、ビジネスロジックの中に直接書かれている | Adapter, Repository |
 | ある状態変化に対して、複数の処理を連鎖的に実行したい | Observer |
 | 複数のサブシステムを組み合わせた処理が散在している | Facade |
 
@@ -301,9 +309,12 @@ Express ミドルウェア    → Chain of Responsibility パターン
 NestJS の DI           → Dependency Injection + Factory パターン
   @Injectable()        → フレームワークがオブジェクトの生成と注入を管理
 
-Prisma Client          → Repository + Builder パターン
+Prisma Client          → データアクセス用のライブラリ（ドメインの Repository ではない）
   prisma.user.findMany({ where: {...} })
-                       → メソッドチェインでクエリを構築
+                       → 条件をオブジェクトで1回渡してクエリを組み立てる
+                         （メソッドチェインではない）
+                       → Repository は PrismaUserRepository のように、
+                         Prisma Client を内側で使って自分で作る
 ```
 
 ## コード例の概要
