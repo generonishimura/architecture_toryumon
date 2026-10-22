@@ -6,7 +6,7 @@
 
 | 項目 | 内容 |
 |------|------|
-| 所要時間 | 2〜2.5時間 |
+| 所要時間 | 2.5時間（150分） |
 | 前提知識 | 第1回（オブジェクト指向）の内容、特にSOLID原則 |
 | 到達目標 | 実務で頻出するデザインパターンを理解し、問題に応じて適用判断ができる |
 
@@ -50,7 +50,7 @@
 - 複雑なサブシステムに対するシンプルなインターフェースを提供
 - TypeScript例：注文処理のファサード（在庫確認 + 決済 + 配送手配）
 
-### 4. 振る舞いに関するパターン（30分）
+### 4. 振る舞いに関するパターン（20分）
 
 #### Strategy
 
@@ -65,14 +65,15 @@
 - TypeScript例：注文状態の変化に応じた通知
 - EventEmitter / RxJS との関連
 
-#### Repository
+### 5. GoF以外の実務パターン：Repository（15分）
 
+- Repository は GoF の23パターンには含まれない。出典は Martin Fowler『Patterns of Enterprise Application Architecture』（2002）と Eric Evans『Domain-Driven Design』（2003）
 - データアクセスのロジックを抽象化する
 - ドメインオブジェクトの永続化と取得のインターフェース
 - 第1回の依存性逆転、第2回のRDB知識を統合
 - TypeScript例：インメモリリポジトリとDB リポジトリの切り替え
 
-### 5. パターンの適用判断（15分）
+### 6. パターンの適用判断（15分）
 
 - 「問題があってパターンがある」— パターンありきで設計しない
 - パターンを適用すべき兆候（コードの匂い）
@@ -122,7 +123,12 @@ class PriceCalculator {
 ```
 
 ```typescript
-// Repository パターン
+// src/repositories/UserRepository.ts
+// Repository パターン（GoF ではなく、PoEAA / DDD のパターン）
+// Prisma 7 では、schema.prisma の generator で指定した output（"../src/generated/prisma"）から import する
+// このファイルは src/repositories/ にあるので、src/generated/prisma/client への相対パスは '../generated/prisma/client' になる
+import { PrismaClient } from '../generated/prisma/client';
+
 interface UserRepository {
   findById(id: string): Promise<User | null>;
   findByEmail(email: string): Promise<User | null>;
@@ -141,6 +147,7 @@ class InMemoryUserRepository implements UserRepository {
 }
 
 // 本番用：Prisma実装
+// PrismaClient は第2回と同じく driver adapter（PrismaPg）を渡して生成し、コンストラクタで受け取る
 class PrismaUserRepository implements UserRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
@@ -180,16 +187,22 @@ ECサイトの「配送料金計算」をデザインパターンを用いて設
 - どのパターンを適用したかと、その理由
 - TypeScriptのコード（インターフェースと主要クラスの実装）
 
+達成基準：
+- **最低限（30分）**: 配送方法ごとの料金計算を Strategy パターンで書く。`ShippingFeeStrategy` インターフェースと、3種類の配送方法の実装クラスを用意する
+- **目標**: 新しい配送方法を追加するときに、既存のクラスを変更しなくてよい（OCP）。地域ごとの料金と送料無料の判定が、配送方法の各クラスに重複して書かれていない
+- **ヒント**: 「配送方法ごとに変わる部分」と「どの配送方法でも同じ部分（送料無料の判定など）」を分けて考える
+
 ### 発展課題（任意）
 
 NestJSのソースコードを読み、どのデザインパターンが使われているかを3つ以上特定し、それぞれの役割を説明してください。
 
 ## 参考資料
 
-- 『Head First デザインパターン』Eric Freeman 他
+- 『Head First デザインパターン 第2版』Eric Freeman 他（オライリー・ジャパン, 2022）
 - 『リファクタリング 既存のコードを安全に改善する（第2版）』Martin Fowler
 - [Refactoring Guru — Design Patterns](https://refactoring.guru/design-patterns)
+- 用語の確認: [用語集](../../docs/glossary.md)
 
 ## 次回との接続
 
-第4回で学んだRepository、Factory、Strategyパターンは、第5回（DDD）の戦術的設計パターンの基礎になります。DDDでは、これらのパターンをドメインモデルの構築に統合的に活用します。
+第4回で学んだRepository、Factoryパターンは、第5回（DDD）の戦術的設計の構成要素として直接使われます。Strategyパターンは、ドメインサービスや料金計算の切り替えで使われることがあります。DDDでは、これらのパターンをドメインモデルの構築に統合的に活用します。

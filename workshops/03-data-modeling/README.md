@@ -6,7 +6,7 @@
 
 | 項目 | 内容 |
 |------|------|
-| 所要時間 | 2〜2.5時間 |
+| 所要時間 | 2.5時間（150分） |
 | 前提知識 | 第2回（RDB）の内容、正規化の基礎知識 |
 | 到達目標 | ER図の読み書きができ、概念/論理/物理モデルの段階的な設計プロセスを理解している |
 
@@ -79,37 +79,63 @@
 
 - 要件ヒアリングのシミュレーション
 - 概念モデルの作成
+- 「同じ本が2冊あったら？」「共著の本は？」を考え、書誌（Book）と蔵書（BookCopy）の区別、著者と本の M:N を見つける
 - 論理モデルへの変換
 - 物理モデル（Prisma schema）の作成
 
 ## コード例の概要
 
-```typescript
+```prisma
 // 概念モデルをPrisma schemaに落とし込む例
 
 // 図書管理システム
 model Author {
-  id        String   @id @default(uuid())
+  id        String       @id @default(uuid())
   name      String
-  books     Book[]
-  createdAt DateTime @default(now()) @map("created_at")
+  books     BookAuthor[]
+  createdAt DateTime     @default(now()) @map("created_at")
 
   @@map("authors")
 }
 
+// 書誌（タイトル）。ISBN が同じ本は1件だけ登録する
 model Book {
   id          String       @id @default(uuid())
   title       String
   isbn        String       @unique
   publishedAt DateTime     @map("published_at")
-  authorId    String       @map("author_id")
-  author      Author       @relation(fields: [authorId], references: [id])
-  loans       BookLoan[]
+  authors     BookAuthor[]
+  copies      BookCopy[]
   createdAt   DateTime     @default(now()) @map("created_at")
 
-  @@index([authorId])
   @@index([isbn])
   @@map("books")
+}
+
+// M:N を中間テーブルで表現（共著：1冊の本に複数の著者、1人の著者に複数の本）
+model BookAuthor {
+  bookId   String @map("book_id")
+  authorId String @map("author_id")
+  book     Book   @relation(fields: [bookId], references: [id])
+  author   Author @relation(fields: [authorId], references: [id])
+
+  @@id([bookId, authorId])
+  @@index([authorId])
+  @@map("book_authors")
+}
+
+// 蔵書（図書館が持っている物理的な1冊）。同じ本を2冊持っていれば2件になる
+model BookCopy {
+  id              String     @id @default(uuid())
+  bookId          String     @map("book_id")
+  accessionNumber String     @unique @map("accession_number") // 所蔵番号
+  status          String     @default("AVAILABLE") // 状態（AVAILABLE / ON_LOAN / LOST など）
+  book            Book       @relation(fields: [bookId], references: [id])
+  loans           BookLoan[]
+  createdAt       DateTime   @default(now()) @map("created_at")
+
+  @@index([bookId])
+  @@map("book_copies")
 }
 
 model Member {
@@ -122,17 +148,18 @@ model Member {
   @@map("members")
 }
 
-// M:N を中間テーブルで表現（貸出管理）
+// 貸出は単純な中間テーブルではなく「出来事のエンティティ」
+// 独自の id と貸出日・返却日を持つ。同じ会員が同じ蔵書を何度借りても、そのたびに1件ずつ記録される
 model BookLoan {
   id         String    @id @default(uuid())
-  bookId     String    @map("book_id")
+  copyId     String    @map("copy_id")
   memberId   String    @map("member_id")
   loanedAt   DateTime  @default(now()) @map("loaned_at")
   returnedAt DateTime? @map("returned_at")
-  book       Book      @relation(fields: [bookId], references: [id])
+  copy       BookCopy  @relation(fields: [copyId], references: [id])
   member     Member    @relation(fields: [memberId], references: [id])
 
-  @@index([bookId])
+  @@index([copyId])
   @@index([memberId])
   @@index([returnedAt])
   @@map("book_loans")
@@ -168,6 +195,11 @@ model BookLoan {
 - Prisma schema形式の物理モデル
 - インデックス設計とその根拠
 
+達成基準：
+- **最低限（30分）**: ユーザー・プロジェクト・タスク・コメントの4つのエンティティと、その関係を概念モデルに書く。同じ4つを Prisma schema の物理モデルにする
+- **目標**: 担当者（タスクとユーザー）とラベル（タスクとラベル）の M:N を、中間テーブルに分解している。インデックスごとに、どのクエリを速くするためのものかを書いている
+- **ヒント**: 「1つのタスクに担当者は何人いるか」「1人のユーザーは何件のタスクを担当するか」のように、関係ごとに両方向から数を確認する
+
 ### 発展課題（任意）
 
 自分のプロジェクトの既存テーブル構造を概念モデルに逆変換し、現在のモデルの改善点を洗い出してください。
@@ -175,8 +207,9 @@ model BookLoan {
 ## 参考資料
 
 - 『楽々ERDレッスン』羽生章洋
-- 『達人に学ぶDB設計 徹底指南書』ミック
+- 『達人に学ぶDB設計 徹底指南書 第2版』ミック（翔泳社, 2024）
 - [dbdiagram.io](https://dbdiagram.io/) — ER図作成ツール
+- 用語の確認: [用語集](../../docs/glossary.md)
 
 ## 次回との接続
 
