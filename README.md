@@ -34,7 +34,7 @@
 - [企画概要・コンセプト](docs/overview.md)：目的、背景、対象者の詳細
 - [全体スケジュール](docs/schedule.md)：週次の詳細スケジュール
 - [学習の流れ・トピック関連図](docs/progression.md)：トピック間の依存関係と学習順序
-- [設計力セルフアセスメント](docs/assessment-template.md)：開始時と終了時に同じ項目で自己評価するためのテンプレート
+- [設計力セルフアセスメント](docs/assessment-template.md)：第0回の前と第10回の前に、同じ項目で自己評価するためのテンプレート
 - [開発手法とアーキテクチャの関係](docs/development-methodology-guide.md)：本編で扱わない開発手法とアーキテクチャの関係をまとめた補足資料
 
 ### 講師向け

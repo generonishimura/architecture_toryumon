@@ -1,6 +1,6 @@
 # 開発手法とアーキテクチャの関係
 
-> 本ドキュメントは、アーキテクチャ登竜門の補足資料として、ソフトウェア開発手法とアーキテクチャ設計の関係性をまとめたものです。ワークショップ本編では扱いきれないが、アーキテクチャを実務で活かすために不可欠な知識を提供します。
+> 本ドキュメントは、アーキテクチャ登竜門の補足資料です。ソフトウェア開発手法とアーキテクチャ設計の関係をまとめています。ワークショップ本編では扱いきれませんが、アーキテクチャを実務で使うときに必要になる知識です。
 
 ---
 
@@ -12,30 +12,30 @@
 - 最初にすべてを見通すことは不可能
 - 過剰な事前設計は、使われない抽象化や不要な柔軟性を生む
 
-開発手法を理解することで、「いつ・どの程度の設計をするか」という **設計のタイミングと粒度の判断** ができるようになる。
+開発手法を理解すると、「いつ・どの程度の設計をするか」を判断できるようになる。
 
 ---
 
 ## 1. 進化的アーキテクチャ（Evolutionary Architecture）
 
-### 核心的な考え方
+### 基本的な考え方
 
-> アーキテクチャは最初に「決める」ものではなく、時間をかけて「育てる」ものである。
+> アーキテクチャは、最初に一度で決めきるものではなく、時間をかけて少しずつ変えていくものである。
 
-Neal Ford & Rebecca Parsons の提唱する進化的アーキテクチャでは、以下を重視する。
+Neal FordとRebecca Parsonsが提唱する進化的アーキテクチャでは、次の3つを重視する。
 
-- **段階的な変更（Incremental Change）**: 小さな変更を頻繁に行い、フィードバックを得る
-- **適応度関数（Fitness Functions）**: アーキテクチャの品質を自動的に検証する仕組み
-- **適切な結合（Appropriate Coupling）**: 変更の影響範囲を制御するための意図的な境界設計
+- **段階的な変更（Incremental Change）**：小さな変更を頻繁に行い、フィードバックを得る
+- **適応度関数（Fitness Functions）**：アーキテクチャの品質を自動的に検証する仕組み
+- **適切な結合（Appropriate Coupling）**：変更の影響範囲を制御するための意図的な境界設計
 
 ### ワークショップとの関連
 
 | ワークショップ回 | 関連する進化的アーキテクチャの考え方 |
 |----------------|----------------------------------|
-| 第4回 デザインパターン | パターンは「最初から入れる」ではなく「必要になったときに適用する」 |
+| 第4回 デザインパターン | パターンは最初から入れず、必要になったときに適用する |
 | 第5回 DDD | 境界づけられたコンテキストは、サービス分割の将来の候補を示す |
 | 第6回 クリーンアーキテクチャ | 依存性逆転により、インフラの差し替えが容易になる |
-| 第7回 マイクロサービス | モノリスから始めて、成長に応じてサービスを切り出す |
+| 第7回 マイクロサービス | モノリスから始めて、システムの規模が大きくなったらサービスを切り出す |
 
 ### 実践のポイント
 
@@ -51,11 +51,11 @@ Neal Ford & Rebecca Parsons の提唱する進化的アーキテクチャでは�
 
 ## 2. YAGNI原則（You Ain't Gonna Need It）
 
-### 核心的な考え方
+### 基本的な考え方
 
 > 実際に必要になるまで、機能や抽象化を追加してはならない。
 
-YAGNI原則はエクストリームプログラミング（XP）から生まれた原則で、以下を戒める。
+YAGNI原則はエクストリームプログラミング（XP）で提唱された原則で、次のようなことを戒める。
 
 - 「将来使うかもしれない」抽象化の事前実装
 - 現時点で必要のないデザインパターンの適用
@@ -63,7 +63,7 @@ YAGNI原則はエクストリームプログラミング（XP）から生まれ�
 
 ### アーキテクチャ設計への適用
 
-**過剰設計の例:**
+次のコードは過剰設計の例である。
 
 ```typescript
 // ❌ 現在のシステムにはメール通知しかないのに、汎用通知基盤を作ってしまう
@@ -99,19 +99,19 @@ class EmailNotifier {
 
 ### 判断の基準
 
-以下の問いかけで、YAGNIに反していないか確認できる。
+次の問いで、YAGNIに反していないか確認できる。
 
-1. **今のユーザーストーリーにこの抽象化は必要か？**
-2. **この柔軟性を使う具体的なシナリオが、直近のロードマップにあるか？**
-3. **この構造を追加することで、現在のコードの理解しやすさは下がらないか？**
+1. 今のユーザーストーリーにこの抽象化は必要か？
+2. この柔軟性を使う具体的なシナリオが、直近のロードマップにあるか？
+3. この構造を追加すると、現在のコードは理解しにくくならないか？
 
 ---
 
 ## 3. ADR（Architecture Decision Records）
 
-### 核心的な考え方
+### 基本的な考え方
 
-> 設計判断の「なぜ」を記録することで、未来のチームメンバーが同じ議論を繰り返さなくて済む。
+> 設計判断の「なぜ」を記録しておけば、後からチームに加わったメンバーが同じ議論を繰り返さずに済む。
 
 ### ADRの構成
 
@@ -134,8 +134,8 @@ Firebase Authenticationを採用する。
 - チームの学習コストが低い（ドキュメントが充実）
 
 ## 検討した代替案
-- **Auth0**: 機能は豊富だが、無料枠の制限が厳しい
-- **自前実装（Passport.js）**: 柔軟だが、セキュリティの担保が困難
+- **Auth0**：機能は豊富だが、無料枠の制限が厳しい
+- **自前実装（Passport.js）**：柔軟だが、セキュリティの担保が困難
 
 ## 結果
 Firebase Authenticationで認証基盤を構築し、3ヶ月後に
@@ -150,30 +150,30 @@ Firebase Authenticationで認証基盤を構築し、3ヶ月後に
 - 「なぜCQRSを導入したか」
 - 「なぜこの集約の境界にしたか」
 
-ADRを書く習慣を持つことで、設計判断の「なぜ」を言語化する力が鍛えられる。これは本ワークショップの目標「設計判断の引き出しを増やす」に直結する。
+ADRを書き続けると、設計判断の理由を文章で説明できるようになる。これは本ワークショップの目標「設計判断の引き出しを増やす」につながる。
 
 ---
 
 ## 4. 技術的負債の管理
 
-### 核心的な考え方
+### 基本的な考え方
 
-> 技術的負債は「悪」ではなく、意図的に取るか無意識に生まれるかが問題である。
+> 技術的負債は、それ自体が悪いものではない。問うべきなのは、その負債を意図して抱えたのか、気づかないうちに生まれたのかである。
 
 ### 技術的負債の4象限（Martin Fowler）
 
 |  | 意図的 | 無意識 |
 |--|--------|--------|
-| **慎重** | 「今はこの設計で出荷し、次のスプリントでリファクタリングする」 | 「レイヤー分離がもっと良い方法があったと後から気づいた」 |
+| **慎重** | 「今はこの設計で出荷し、次のスプリントでリファクタリングする」 | 「レイヤー分離にはもっと良い方法があったと後から気づいた」 |
 | **無謀** | 「設計する時間がないからとりあえず動くコードを書く」 | 「そもそもレイヤー分離が何かを知らなかった」 |
 
 ### アーキテクチャ学習との関係
 
-本ワークショップを受講することで、以下の変化が期待できる。
+本ワークショップを受講すると、次のような変化が期待できる。
 
-- **無意識の負債が減る**: 設計の選択肢を知ることで、知らずに生まれる負債が減少
-- **意図的な判断ができる**: 「今は第3正規形で十分。パフォーマンス問題が出たら非正規化を検討する」のように、根拠を持って判断できる
-- **負債の返済計画が立てられる**: リファクタリングの方向性（どのパターンに向かうか）が見える
+- **無意識の負債が減る**：設計の選択肢を知っていれば、知らないうちに負債を作ることが少なくなる
+- **意図的な判断ができる**：「今は第3正規形で十分。パフォーマンス問題が出たら非正規化を検討する」のように、根拠を持って判断できる
+- **負債の返済計画が立てられる**：リファクタリングでどのパターンを目指すかを決められる
 
 ---
 
@@ -195,54 +195,58 @@ ADRを書く習慣を持つことで、設計判断の「なぜ」を言語化�
 
 ### クリーンアーキテクチャとテスタビリティ
 
-クリーンアーキテクチャの最大の実務的メリットのひとつが **テスタビリティ** である。
+クリーンアーキテクチャを実務で使う大きな利点の一つは、テスタビリティ（テストのしやすさ）である。
 
 ```typescript
-// ❌ インフラ層に直接依存したビジネスロジック → テストが困難
+// ❌ ビジネスロジックが DB クライアントやメッセージブローカーのクライアント（Frameworks & Drivers）を直接 new している → テストが困難
 class OrderService {
   async createOrder(items: Item[]): Promise<Order> {
     const db = new PostgresClient();  // テスト時にDBが必要
     const order = new Order(items);
     await db.query('INSERT INTO orders ...', [order]);
 
-    const mailer = new SendGridClient();  // テスト時にメール送信が発生
-    await mailer.send(order.customerEmail, 'Order confirmed');
+    const producer = new KafkaProducer();  // テスト時にメッセージブローカーが必要
+    await producer.send('OrderPlaced', { orderId: order.id });
 
     return order;
   }
 }
 
-// ✅ 依存性逆転でインフラを分離 → 単体テストが容易
+// ✅ 依存性逆転で、DB とイベントの送信を Use Cases の外に出す → 単体テストが容易
+// （確認メールは第9回のとおり、決済完了（PaymentCompleted）の後に別のハンドラが送る）
 interface OrderRepository {
   save(order: Order): Promise<void>;
 }
-interface NotificationService {
-  notifyOrderCreated(order: Order): Promise<void>;
+type OrderPlaced = { type: 'OrderPlaced'; orderId: string };
+interface DomainEventPublisher {
+  publish(event: OrderPlaced): Promise<void>;
 }
 
 class CreateOrderUseCase {
   constructor(
     private orderRepo: OrderRepository,
-    private notifier: NotificationService,
+    private events: DomainEventPublisher,
   ) {}
 
   async execute(items: Item[]): Promise<Order> {
     const order = new Order(items);
     await this.orderRepo.save(order);
-    await this.notifier.notifyOrderCreated(order);
+    await this.events.publish({ type: 'OrderPlaced', orderId: order.id });
     return order;
   }
 }
 
-// テスト: DBもメールも不要
-test('注文を作成できる', async () => {
+// テスト: DBもメッセージブローカーも不要
+test('注文を作成すると OrderPlaced が発行される', async () => {
   const fakeRepo: OrderRepository = { save: async () => {} };
-  const fakeNotifier: NotificationService = { notifyOrderCreated: async () => {} };
-  const useCase = new CreateOrderUseCase(fakeRepo, fakeNotifier);
+  const published: OrderPlaced[] = [];
+  const fakeEvents: DomainEventPublisher = { publish: async (e) => { published.push(e); } };
+  const useCase = new CreateOrderUseCase(fakeRepo, fakeEvents);
 
   const order = await useCase.execute([{ name: 'Book', price: 1500 }]);
 
   expect(order.items).toHaveLength(1);
+  expect(published).toEqual([{ type: 'OrderPlaced', orderId: order.id }]);
 });
 ```
 
@@ -254,7 +258,7 @@ Green  → テストが通る最小限の実装を書く
 Refactor → コードを整理する（テストが通り続けることを確認）
 ```
 
-TDDはアーキテクチャ設計を「テストが書きやすい構造に自然と導く」効果がある。テストが書きにくいと感じたら、それは設計改善のシグナルである。
+TDDではテストを先に書くので、設計はテストを書きやすい構造になりやすい。テストが書きにくいと感じたときは、設計に改善の余地がある。
 
 ---
 
@@ -264,7 +268,7 @@ TDDはアーキテクチャ設計を「テストが書きやすい構造に自�
 
 > 「アジャイルではアーキテクチャ設計をしない」
 
-これは誤りである。アジャイルは **事前に完璧な設計をしない** のであって、**設計をしない** のではない。
+これは誤りである。アジャイルでも設計はする。事前に完璧な設計を作り込まず、開発を進めながら必要な分だけ設計する。
 
 ### 正しい理解
 
@@ -272,8 +276,8 @@ TDDはアーキテクチャ設計を「テストが書きやすい構造に自�
 |-----------------------------|---------------------|
 | 最初に完全な設計書を作成 | 最初は「十分な」設計で始める |
 | 設計変更は「手戻り」として忌避 | 設計変更は「学び」として歓迎 |
-| アーキテクトが設計し、開発者が実装 | チーム全体でアーキテクチャを育てる |
-| 設計は最初のフェーズで完了 | 設計は開発を通して継続的に進化 |
+| アーキテクトが設計し、開発者が実装 | チーム全体でアーキテクチャを決め、改善する |
+| 設計は最初のフェーズで完了 | 設計は開発を通して継続的に見直す |
 
 ### スプリント内でのアーキテクチャ活動
 
@@ -299,11 +303,11 @@ TDDはアーキテクチャ設計を「テストが書きやすい構造に自�
 
 ## 7. 段階的移行パターン
 
-既存システムのアーキテクチャを改善する際に使える実践的なパターン。
+既存システムのアーキテクチャを少しずつ改善するときに使えるパターンを2つ挙げる。
 
 ### ストラングラーフィグパターン（Strangler Fig Pattern）
 
-モノリスからマイクロサービスへの移行で最もよく使われるパターン。
+モノリスからマイクロサービスへ移行するときに、最もよく使われるパターンである。
 
 ```
 [Phase 1] モノリスの前にルーターを配置
@@ -322,19 +326,26 @@ TDDはアーキテクチャ設計を「テストが書きやすい構造に自�
 
 ### フィーチャーフラグ（Feature Flags）
 
-新しいアーキテクチャへの移行を段階的に行うための仕組み。
+新しいアーキテクチャへの移行を段階的に進めるための仕組みである。次の例では、確定済みの注文を処理するときに、フラグの値で新旧どちらの実装を使うかを切り替える。
 
 ```typescript
-// フィーチャーフラグで新旧の実装を切り替え
+// フィーチャーフラグで新旧の実装を切り替える（order は確定済み = CONFIRMED）
 async function processOrder(order: Order): Promise<void> {
   if (featureFlags.isEnabled('use-event-driven-order')) {
-    // 新しいイベント駆動の実装
-    await eventBus.publish(new OrderCreatedEvent(order));
+    // 新しいイベント駆動の実装（第9回の Saga と同じ流れ）
+    // OrderPlaced を発行すると、各サービスが在庫引当、決済の順に処理し、PaymentCompleted の後に確認メールを送る
+    // 第9回の OrderPlaced は在庫引当に使う items を持つので、注文の明細から items を作って渡す
+    await eventBus.publish(new OrderPlaced(
+      order.id,
+      order.customerId,
+      order.totalAmount,
+      order.items.map((item) => ({ productId: item.productId, quantity: item.quantity })),
+    ));
   } else {
     // 従来の同期的な実装
-    await orderProcessor.process(order);
-    await notificationService.send(order);
-    await inventoryService.reserve(order);
+    await inventoryService.reserve(order);   // 在庫引当
+    await paymentService.charge(order);      // 決済
+    await notificationService.send(order);   // 確認メール（決済の後）
   }
 }
 ```
@@ -343,12 +354,12 @@ async function processOrder(order: Order): Promise<void> {
 
 ## 推薦図書
 
-本ドキュメントの内容をさらに深く学びたい方向け。
+本ドキュメントの内容をさらに詳しく学びたい人向けの書籍を挙げる。
 
 | 書籍 | 著者 | 関連トピック |
 |------|------|------------|
-| *Building Evolutionary Architectures* | Neal Ford, Rebecca Parsons | 進化的アーキテクチャ |
+| *Building Evolutionary Architectures* 第2版（2022） | Neal Ford, Rebecca Parsons, Patrick Kua, Pramod Sadalage | 進化的アーキテクチャ |
 | *Clean Agile* | Robert C. Martin | アジャイルとソフトウェア設計 |
-| *Refactoring* | Martin Fowler | 段階的な設計改善 |
+| *Refactoring* 第2版（2018） | Martin Fowler | 段階的な設計改善 |
 | *Working Effectively with Legacy Code* | Michael Feathers | 既存コードへの設計適用 |
 | *Accelerate* | Nicole Forsgren et al. | 開発生産性とアーキテクチャの関係 |
