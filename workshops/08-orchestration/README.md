@@ -52,12 +52,12 @@ VM: OSごと仮想化 → 重い（GB単位）、起動に分単位
 コンテナ: プロセスを隔離 → 軽い（MB単位）、起動に秒単位
 ```
 
-> **Dockerfile ベストプラクティス**:
-> 1. **軽量ベースイメージを使う**: `node:24` ではなく `node:24-alpine` を使う（イメージのサイズが大きく減る）
-> 2. **レイヤーキャッシュを活用**: `package.json` を先にCOPYし `npm ci` → ソースコードはその後
-> 3. **マルチステージビルド**: ビルド用ステージと実行用ステージを分ける
-> 4. **rootユーザーで実行しない**: `USER node` で権限を制限
-> 5. **`.dockerignore` を使う**: `node_modules`, `.git`, `.env` を除外
+> Dockerfileのベストプラクティスは、次の5つ。
+> 1. 軽量なベースイメージを使う：`node:24` の代わりに `node:24-alpine` を使う（イメージのサイズが大きく減る）
+> 2. レイヤーキャッシュを活用する：先に `package.json` をCOPYして `npm ci` を実行し、そのあとでソースコードをCOPYする
+> 3. マルチステージビルド：ビルド用ステージと実行用ステージを分ける
+> 4. rootユーザーで実行しない：`USER node` を指定して権限を制限する
+> 5. `.dockerignore` を使う：`node_modules`、`.git`、`.env` をイメージから除外する
 
 #### Node.jsアプリケーションのコンテナ化
 
@@ -126,7 +126,7 @@ services:
       order-db:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -147,7 +147,7 @@ services:
     volumes:
       - order-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U user"]
+      test: ["CMD-SHELL", "pg_isready -U user -d orders -h 127.0.0.1"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -166,7 +166,9 @@ volumes:
   inventory-data:
 ```
 
-> **Docker Compose のポイント**: `depends_on` だけではDBの起動完了を待てません。`healthcheck` + `condition: service_healthy` を組み合わせることで、DBが実際にクエリを受け付けられる状態になってからアプリを起動できます。
+> 注: `node:24-alpine` には `curl` が入っていない。そのため、order-serviceのhealthcheckでは、BusyBoxの `wget` を使っている。order-dbの `pg_isready` に `-h 127.0.0.1` を付けているのは、TCPで接続を確かめるためである。postgresイメージは初回起動の初期化中に、TCPを受け付けない一時サーバーを動かす。`-h` を付けないと、この一時サーバーに対しても「ready」と判定されることがある。
+
+> Docker Composeの `depends_on` だけでは、DBの起動完了を待てません。`healthcheck` と `condition: service_healthy` を組み合わせると、DBがクエリを受け付けられる状態になってからアプリを起動できます。
 
 ### 3. コンテナオーケストレーション（30分）
 
@@ -375,44 +377,45 @@ docker-composeを使って、注文サービスと在庫サービスの2つの�
 #### 前提知識の確認
 
 - [ ] 第7回のマイクロサービス（サービス分割、API設計）を復習済み
-- [ ] ターミナル操作に慣れている（基本的なコマンドライン操作ができる）
-- [ ] Docker が自分のPCにインストール済み（`docker --version` で確認）
+- [ ] ターミナルで基本的なコマンド操作ができる
 
-#### 事前セットアップ（必須・20分程度）
+#### 課題のためのセットアップ（講義中は使わない・20分程度）
 
-- [ ] Docker Desktop のインストールと動作確認
+講義中の実習はありません（講師のデモだけです）。コード課題を手元で動かして確かめるために、課題に取り組む前までに次を準備してください。
+
+- [ ] Dockerのインストールと動作確認（Docker Desktopは、会社の規模によっては有料ライセンスが必要になる。Rancher Desktop、Colimaなどでもよい）
   ```bash
   docker run hello-world
   ```
-- [ ] Docker Compose の動作確認
+- [ ] Docker Composeの動作確認
   ```bash
   docker compose version
   ```
-- [ ] （可能であれば）kubectl のインストール
+- [ ] （任意）課題のKubernetesマニフェストを確かめたい場合は、kubectlをインストールする
   ```bash
   kubectl version --client
   ```
 
 #### 事前読み物（30分程度）
 
-- [ ] 以下のキーワードについて概要を調べておく
+- [ ] 次のキーワードについて概要を調べておく
   - コンテナ vs 仮想マシン（VM）
-  - Docker イメージとコンテナの関係
-  - Kubernetes の Pod と Deployment
+  - Dockerイメージとコンテナの関係
+  - KubernetesのPodとDeployment
   - CI/CD（継続的インテグレーション / 継続的デリバリー）
-- [ ] 自分のプロジェクトの現在のデプロイ方法を確認しておく（手動 / CI/CD / コンテナ等）
+- [ ] 自分のプロジェクトの現在のデプロイ方法を確認しておく（手動 / CI/CD / コンテナなど）
 
 #### 事前ミニ課題（任意・15分程度）
 
-自分のプロジェクト（またはサンプルのNode.jsアプリ）の `Dockerfile` を書いてみてください。完璧でなくてOKです。講義中にベストプラクティスを学びます。
+自分のプロジェクト（またはサンプルのNode.jsアプリ）の `Dockerfile` を書いてみてください。完成していなくても構いません。Dockerfileのベストプラクティスは講義で扱います。
 
 ### 運営側
 
 - [ ] 第7回の課題提出状況の確認
-- [ ] 全参加者のDocker環境のセットアップ状況を事前に確認
-- [ ] Kubernetes デモ用のクラスター準備（minikube / kind / クラウド環境）
-- [ ] GitHub Actions のサンプルワークフローが動作する状態のリポジトリ準備
-- [ ] Docker / Kubernetes のコマンド早見表の配布資料準備
+- [ ] 参加者に、課題用のDocker環境の準備方法（ライセンス条件を含む）を案内する
+- [ ] （任意）Kubernetesデモ用のクラスター準備（minikube / kind）
+- [ ] GitHub Actionsのサンプルワークフローが動くリポジトリの準備
+- [ ] Docker / Kubernetesのコマンド早見表（配布資料）の準備
 - [ ] ネットワーク環境の確認（Docker Hubからのイメージ取得が可能か）
 
 ## 参考資料
