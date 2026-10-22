@@ -34,6 +34,8 @@
 - [企画概要・コンセプト](docs/overview.md)：目的、背景、対象者の詳細
 - [全体スケジュール](docs/schedule.md)：週次の詳細スケジュール
 - [学習の流れ・トピック関連図](docs/progression.md)：トピック間の依存関係と学習順序
+- [設計力セルフアセスメント](docs/assessment-template.md)：開始時と終了時に同じ項目で自己評価するためのテンプレート
+- [開発手法とアーキテクチャの関係](docs/development-methodology-guide.md)：本編で扱わない開発手法とアーキテクチャの関係をまとめた補足資料
 
 ### 講師向け
 
@@ -45,6 +47,7 @@
 - [講師の理解度セルフチェックシート](docs/instructor-self-check.md)：教えられるレベルに達しているかの確認リスト
 - [「よくある誤解」ハンドブック](docs/common-misconceptions.md)：各テーマの典型的な誤解と正しい理解
 - [参考書籍クイックリファレンス](docs/instructor-reading-list.md)：講師向け優先読書ガイド
+- [改善提案まとめ](docs/improvement-proposals.md)：今後の進め方についての改善点と追加トピックの提案
 
 ## 対象者
 
@@ -72,13 +75,16 @@ architecture_toryumon/
 │   ├── concept-guide.md       # 概念理解ガイド
 │   ├── glossary.md            # 用語集
 │   ├── visual-concept-map.md  # 概念の関連図
+│   ├── assessment-template.md # 設計力セルフアセスメント
+│   ├── development-methodology-guide.md # 開発手法とアーキテクチャの関係
 │   ├── facilitator-prep-guide.md # 講師・ファシリテーター準備ガイド
 │   ├── instructor-learning-guide.md # 講師のための自己学習ガイド
 │   ├── discussion-facilitation-kit.md # ディスカッションファシリテーション集
 │   ├── session-bridge-scripts.md # 回をまたぐ「つなぎ台本」
 │   ├── instructor-self-check.md # 講師の理解度セルフチェックシート
 │   ├── common-misconceptions.md # 「よくある誤解」ハンドブック
-│   └── instructor-reading-list.md # 参考書籍クイックリファレンス
+│   ├── instructor-reading-list.md # 参考書籍クイックリファレンス
+│   └── improvement-proposals.md # 改善提案まとめ
 └── workshops/
     ├── 00-orientation/        # 第0回：オリエンテーション
     │   ├── README.md          # 参加者向け資料

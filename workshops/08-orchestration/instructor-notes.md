@@ -8,6 +8,7 @@
 
 ## 講師の事前準備チェックリスト
 
+### 知識・コンテンツ準備
 - [ ] Node.jsアプリのDockerfile（マルチステージビルド）を手元でビルド・実行できる状態にする
 - [ ] docker-composeでアプリ+DBを立ち上げるデモを準備する
 - [ ] Kubernetesの概念図（Pod / Deployment / Service / Ingress・Gateway APIの関係）を描けるようにする
@@ -16,6 +17,16 @@
 - [ ] （可能なら）minikubeかkindでローカルのK8s環境を準備し、デモできるようにする
 - [ ] READMEのGitHub Actionsの例について、開催時点のactions/checkoutとactions/setup-nodeの最新メジャーバージョンを確認する（2026年10月時点はv6）
 - [ ] Node.jsのLTSスケジュール（https://github.com/nodejs/release）を確認する。本教材はNode.js 24 LTSを想定している
+
+### デモ環境の事前検証
+- [ ] デモ用のDockerfile、docker-compose.yml、K8sマニフェストを前日までに動作確認する（環境依存の問題はデモ直前に発覚すると致命的）
+- [ ] デモが失敗した場合のフォールバック（スクリーンショットやスライドでの説明）を準備する
+- [ ] 参加者がハンズオンで手を動かす場合、Docker Desktopのインストール状況を事前に確認する
+
+### 実務との接続
+- [ ] 参加者のプロジェクトで使われているCI/CDツール（GitHub Actions, CircleCI, Jenkins等）を事前に把握し、比較の参考にする
+- [ ] 「開発者としてインフラの知識がなぜ必要か」をキャリア観点で説明できるようにする（Platform Engineeringのトレンド等）
+- [ ] セキュリティの観点（Dockerイメージの脆弱性スキャン、Secret管理、最小権限原則）も触れられるよう準備する
 
 ## 時間配分ガイド
 
@@ -75,6 +86,23 @@
 1. Dockerfileのライブコーディング：Node.jsアプリを受講者の前でコンテナ化する
 2. docker compose upのデモ：アプリ+PostgreSQLを1コマンドで起動する
 3. （可能なら）K8sのデモ：minikubeでDeploymentを作成し、`kubectl scale` でスケーリングを見せる
+
+## 多角的な視点
+
+### コスト・ビジネスの観点
+- Kubernetesクラスタの運用コスト（人的コスト + インフラコスト）は無視できない。マネージドサービス（EKS, GKE, AKS）やFargate/Cloud Runの活用でコスト最適化を図る選択肢を紹介する
+- 「技術的に最適」と「ビジネス的に最適」は異なる。小規模サービスにK8sはオーバーキルであり、Docker Compose + VPS or PaaS（Heroku, Render等）で十分な場合もある
+- スケーリングの必要性を「実際のトラフィックデータ」に基づいて判断することの重要性
+
+### 開発者体験（DX）の観点
+- Docker Composeでの開発環境統一は「新メンバーのオンボーディング時間短縮」に直結する実利がある
+- CI/CDパイプラインの自動化は「デプロイを怖くなくする」効果がある。デプロイ頻度が上がることでフィードバックサイクルが短くなる
+- 「Infrastructure as Code」の思想 — インフラもコードレビューの対象にできることのメリット
+
+### セキュリティの観点
+- Dockerイメージの脆弱性スキャン（Trivy, Snyk等）の組み込みを推奨する
+- Kubernetes のSecret管理、RBAC（Role-Based Access Control）の基本を概要レベルで触れる
+- CI/CDパイプラインでのシークレット管理（GitHub Secrets, Vault等）の重要性
 
 ## 次回（第9回 イベント駆動）への橋渡し
 
