@@ -8,7 +8,7 @@
 
 ## 講師の事前準備チェックリスト
 
-- [ ] 4層構造（Domain / Application / Infrastructure / Presentation）のサンプルプロジェクトを手元で動く状態にする
+- [ ] 4層構造（Domain / Application / Infrastructure / Presentation）のサンプルプロジェクトを手元で動く状態にする（同心円の4層との対応は README の対応表に合わせる。infrastructure/persistence/ は Interface Adapters、infrastructure/config/ は Frameworks & Drivers）
 - [ ] 「依存の方向が内側に向かう」ことをimport文で確認できるコード例を準備する
 - [ ] 「クリーンアーキテクチャを導入しすぎて辛くなった」事例を1つ用意する（過度な抽象化の弊害）
 - [ ] 手動DIとNestJSのDIコンテナの両方のコード例を準備する
@@ -24,8 +24,11 @@
 | **各レイヤーの役割** | **30分** | コードを見せながら説明。1レイヤー5〜8分 |
 | **Node.js/TSでの実装** | **25分** | ディレクトリ構成 + DI がポイント |
 | よくある誤解と注意 | 10分 | 「やりすぎ」への処方箋 |
+| （講義の予備） | 5分 | 講義の合計は95分。押したときの調整に使う |
 | 休憩 | 10分 | |
-| ディスカッション + Q&A | 20分 | |
+| ディスカッション | 20分 | |
+| Q&A | 10分 | |
+| 次回予告 | 5分 | 第7回 マイクロサービスへの橋渡し |
 
 ## 各トピックの教え方のポイント
 
@@ -37,7 +40,7 @@
 ### 各レイヤーの実装
 - **Domain層:** 第5回で作ったOrder, Money, OrderPlacedをそのまま使う。「前回のコードがここにそのまま入る」
 - **Application層（UseCase）:** 「1ユースケース = 1クラス」が基本。Input/Outputの型を明示することで、何が入って何が出るかが一目瞭然になる
-- **Infrastructure層:** PrismaOrderRepository は OrderRepository インターフェースを implements する。「Prismaが変わってもDomain層は影響を受けない」
+- **infrastructure/persistence/（Interface Adapters の Gateway）:** PrismaOrderRepository は OrderRepository インターフェースを implements する。「Prismaが変わってもDomain層は影響を受けない」。PrismaOrderRepository は infrastructure/persistence/ に置くが、同心円では Interface Adapters 層の Gateway にあたる
 - **Presentation層:** Express Controller は UseCase を呼ぶだけ。ビジネスロジックを書かない
 
 ### DI（依存性注入）

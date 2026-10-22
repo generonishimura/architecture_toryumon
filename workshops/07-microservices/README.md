@@ -6,7 +6,7 @@
 
 | 項目 | 内容 |
 |------|------|
-| 所要時間 | 2〜2.5時間 |
+| 所要時間 | 2.5時間（150分） |
 | 前提知識 | 第5回（DDD、特に境界づけられたコンテキスト）、第6回（クリーンアーキテクチャ） |
 | 到達目標 | マイクロサービスの利点・課題・トレードオフを理解し、サービス分割の判断基準を持てる |
 
@@ -245,9 +245,11 @@ ECサイトをマイクロサービスとして設計してください。
 
 2つのマイクロサービス（注文サービスと在庫サービス）をNode.js / Expressで実装し、REST APIで通信させてください。Circuit Breakerパターンを適用してください。
 
+- TypeScript で Express を使うときは、express に加えて型定義の @types/express も必要である（npm install express と npm install -D @types/express）
+
 ## 参考資料
 
-- 『マイクロサービスアーキテクチャ』Sam Newman
+- 『マイクロサービスアーキテクチャ 第2版』Sam Newman（オライリー・ジャパン, 2022）
 - 『モノリスからマイクロサービスへ』Sam Newman
 - 『マイクロサービスパターン』Chris Richardson
 - [microservices.io](https://microservices.io/) — パターンカタログ

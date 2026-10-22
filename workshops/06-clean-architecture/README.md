@@ -6,7 +6,7 @@
 
 | 項目 | 内容 |
 |------|------|
-| 所要時間 | 2〜2.5時間 |
+| 所要時間 | 2.5時間（150分） |
 | 前提知識 | 第1回（OOP、特に依存性逆転）、第4回（デザインパターン）、第5回（DDD） |
 | 到達目標 | クリーンアーキテクチャの原則を理解し、レイヤー構造とその依存ルールに基づいた設計ができる |
 
@@ -77,9 +77,9 @@
 - Presenter：ユースケースの出力をHTTPレスポンスに変換
 - Gateway：リポジトリインターフェースの実装
 
-#### Frameworks & Drivers（インフラストラクチャ層）
+#### Frameworks & Drivers（フレームワーク・ドライバー層）
 
-- Express / Prisma / 外部API クライアント等
+- Express / Prisma 本体 / 外部APIの SDK・HTTP ライブラリ等
 - 最も「詳細」で最も「交換可能」なレイヤー
 
 ### 4. Node.js / TypeScript での実装（25分）
@@ -88,6 +88,9 @@
 
 ```
 src/
+├── main.ts           # コンポジションルート（Express アプリの起動、PrismaClient の生成）
+├── generated/
+│   └── prisma/       # Prisma Client の生成先（npx prisma generate で作られる）
 ├── domain/           # ドメイン層（Entities）
 │   ├── entities/
 │   ├── value-objects/
@@ -95,7 +98,7 @@ src/
 ├── application/      # アプリケーション層（Use Cases）
 │   ├── use-cases/
 │   └── dto/          # Input / Output
-├── infrastructure/   # インフラストラクチャ層
+├── infrastructure/   # インフラストラクチャ（同心円の層との対応は下の表を参照）
 │   ├── persistence/  # DB実装（Prisma等）
 │   ├── external/     # 外部APIクライアント
 │   └── config/
@@ -105,11 +108,61 @@ src/
     └── middleware/
 ```
 
+#### 同心円のレイヤーとディレクトリの対応
+
+| 同心円のレイヤー | 本教材のディレクトリ | 例 |
+|------------------|----------------------|----|
+| Entities | domain/ | Order, Money, OrderRepository（interface） |
+| Use Cases | application/ | PlaceOrderUseCase, PlaceOrderInput / PlaceOrderOutput |
+| Interface Adapters | presentation/controllers/・presentation/routes/（入力側）、infrastructure/persistence/（出力側＝Gateway） | OrderController, ルートの定義, PrismaOrderRepository |
+| Frameworks & Drivers | src/main.ts、infrastructure/config/、Express・Prisma 本体 | Express アプリの起動と PrismaClient の生成（src/main.ts）、infrastructure/config/ |
+
+- ディレクトリ名と同心円のレイヤー名は1対1に対応しない。infrastructure/ の中で、persistence/ は Interface Adapters、config/ は Frameworks & Drivers にあたる。external/ に置くクラスのうち、ユースケースが使うインターフェースを実装するクラス（例: 決済APIのクライアントの実装）は Interface Adapters の Gateway にあたる。そのクラスが呼び出す SDK や HTTP ライブラリ本体は Frameworks & Drivers にあたる。presentation/ の controllers/ と routes/ は、Interface Adapters の入力側にあたる。src/main.ts は Frameworks & Drivers にあたる
+- 本教材のコード例では、ユースケースが Output を return し、Controller がそれを HTTP レスポンスに変換している。原典では、ユースケースが Output Port（インターフェース）を呼び、Presenter がそれを実装する。小規模なアプリケーションなら return する方式で十分である
+
 #### 依存性注入（DI）
 
 - クリーンアーキテクチャの依存ルールを実現する仕組み
 - NestJSのDIコンテナ
 - 手動DIによるシンプルな構成
+
+手動DIでは、アプリケーションの入口（src/main.ts）で具体クラスを生成し、コンストラクタに渡して組み立てる。
+
+```typescript
+// src/main.ts — コンポジションルート（依存を組み立てる唯一の場所）
+// Prisma 7 は .env を自動で読み込まない。アプリのエントリーポイントの先頭で読み込む
+import 'dotenv/config';
+import express from 'express';
+import { PrismaPg } from '@prisma/adapter-pg';
+// Prisma 7 では、schema.prisma の generator で指定した output（"../src/generated/prisma"）から import する
+// このファイルは src/ の直下にあるので、相対パスは './generated/prisma/client' になる
+import { PrismaClient } from './generated/prisma/client';
+// （各レイヤーのクラスの import は省略）
+
+// Prisma 7 では、PrismaClient に driver adapter を渡す
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+const prisma = new PrismaClient({ adapter });
+
+const placeOrder = new PlaceOrderUseCase(
+  new PrismaOrderRepository(prisma),
+  new PrismaProductRepository(prisma),
+  new InMemoryDomainEventPublisher(),
+);
+const orderController = new OrderController(placeOrder);
+
+const app = express();
+app.use(express.json());
+// 簡略化のため、ルートの定義を main.ts に書いている。実際のプロジェクトでは presentation/routes/ に置く
+app.post('/orders', (req, res, next) => {
+  orderController.create(req, res).catch(next);
+});
+app.listen(3000);
+```
+
+外側の具体クラス（PrismaOrderRepository など）を知っているのは main.ts だけである。domain/ と application/ は、インターフェースにだけ依存する。
+
+- prisma.config.ts にも import 'dotenv/config' を書くが、これが効くのは Prisma CLI（npx prisma migrate など）を実行するときだけである。アプリを npx tsx src/main.ts で実行するときは、main.ts の先頭の import 'dotenv/config' が .env を読み込む
+- Express を TypeScript で使うときは、express に加えて型定義の @types/express も必要である（npm install express と npm install -D @types/express）
 
 ### 5. よくある誤解と実践上の注意（10分）
 
@@ -166,6 +219,7 @@ class PlaceOrderUseCase {
 
     // 4. 永続化
     await this.orderRepo.save(order);
+    // 簡略化のため直接 publish している。本番では保存と同じトランザクションで outbox に書き込む（第9回で扱う）
     await this.eventPublisher.publish(event);
 
     // 5. 出力
@@ -178,7 +232,8 @@ class PlaceOrderUseCase {
 ```
 
 ```typescript
-// === プレゼンテーション層 ===
+// === プレゼンテーション層（presentation/controllers/。同心円では Interface Adapters の入力側） ===
+// src/presentation/controllers/OrderController.ts
 // Express Controller
 class OrderController {
   constructor(private readonly placeOrder: PlaceOrderUseCase) {}
@@ -195,8 +250,13 @@ class OrderController {
   }
 }
 
-// === インフラストラクチャ層 ===
+// === Interface Adapters 層の Gateway（infrastructure/persistence/ に配置） ===
+// src/infrastructure/persistence/PrismaOrderRepository.ts
 // リポジトリ実装（アダプター）
+// PrismaClient は Prisma 7 の生成先（src/generated/prisma/client）から import する
+// このファイルは src/infrastructure/persistence/ にあるので、相対パスは '../../generated/prisma/client' になる
+import { PrismaClient } from '../../generated/prisma/client';
+
 class PrismaOrderRepository implements OrderRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
