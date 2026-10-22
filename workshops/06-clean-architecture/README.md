@@ -6,7 +6,7 @@
 
 | 項目 | 内容 |
 |------|------|
-| 所要時間 | 2〜2.5時間 |
+| 所要時間 | 2.5時間（150分） |
 | 前提知識 | 第1回（OOP、特に依存性逆転）、第4回（デザインパターン）、第5回（DDD） |
 | 到達目標 | クリーンアーキテクチャの原則を理解し、レイヤー構造とその依存ルールに基づいた設計ができる |
 
@@ -20,7 +20,7 @@
 
 - ソフトウェアの変更コストは時間とともに増大する
 - アーキテクチャの目的 = **変更容易性**の確保
-- Robert C. Martin『Clean Architecture』の核心メッセージ
+- Robert C. Martin『Clean Architecture』の中心となる主張
 - 関連するアーキテクチャパターン：Hexagonal / Onion / Clean
 
 > **3つのアーキテクチャパターンの比較**: Hexagonal（ポート&アダプター）、Onion、Clean Architecture は表現が違いますが、核心は同じです。
@@ -68,14 +68,14 @@
 
 - **内側のレイヤーは外側のレイヤーを知らない**
 - 依存は常に内側に向かう
-- 内側のレイヤーが外側の機能を使いたい場合は **インターフェース（ポート）** を定義し、外側が実装する
+- 内側のレイヤーから外側の機能を使う場合は、内側でインターフェース（ポート）を定義し、外側がそれを実装する
 
 ### 3. 各レイヤーの役割（30分）
 
 #### Entities（ドメイン層）
 
 - ビジネスルールをカプセル化したエンティティと値オブジェクト
-- 第5回（DDD）で学んだドメインモデルがここに位置する
+- 第5回（DDD）で学んだドメインモデルをここに置く
 - フレームワーク、DB、HTTPに一切依存しない
 
 #### Use Cases（アプリケーション層）
@@ -87,22 +87,25 @@
 
 #### Interface Adapters（インターフェースアダプター層）
 
-- ユースケースと外部世界の橋渡し
+- ユースケースと外部（HTTPやDBなど）をつなぐ
 - Controller：HTTPリクエストをユースケースの入力に変換
 - Presenter：ユースケースの出力をHTTPレスポンスに変換
 - Gateway：リポジトリインターフェースの実装
 
-#### Frameworks & Drivers（インフラストラクチャ層）
+#### Frameworks & Drivers（フレームワーク・ドライバー層）
 
-- Express / Prisma / 外部API クライアント等
+- Express / Prisma本体 / 外部APIのSDK・HTTPライブラリ等
 - 最も「詳細」で最も「交換可能」なレイヤー
 
-### 4. Node.js / TypeScript での実装（25分）
+### 4. Node.js / TypeScriptでの実装（25分）
 
 #### ディレクトリ構造
 
 ```
 src/
+├── main.ts           # コンポジションルート（Express アプリの起動、PrismaClient の生成）
+├── generated/
+│   └── prisma/       # Prisma Client の生成先（npx prisma generate で作られる）
 ├── domain/           # ドメイン層（Entities）
 │   ├── entities/
 │   ├── value-objects/
@@ -110,7 +113,7 @@ src/
 ├── application/      # アプリケーション層（Use Cases）
 │   ├── use-cases/
 │   └── dto/          # Input / Output
-├── infrastructure/   # インフラストラクチャ層
+├── infrastructure/   # インフラストラクチャ（同心円の層との対応は下の表を参照）
 │   ├── persistence/  # DB実装（Prisma等）
 │   ├── external/     # 外部APIクライアント
 │   └── config/
@@ -120,43 +123,70 @@ src/
     └── middleware/
 ```
 
+#### 同心円のレイヤーとディレクトリの対応
+
+| 同心円のレイヤー | 本教材のディレクトリ | 例 |
+|------------------|----------------------|----|
+| Entities | domain/ | Order, Money, OrderRepository（interface） |
+| Use Cases | application/ | PlaceOrderUseCase, PlaceOrderInput / PlaceOrderOutput |
+| Interface Adapters | presentation/controllers/・presentation/routes/（入力側）、infrastructure/persistence/（出力側＝Gateway） | OrderController, ルートの定義, PrismaOrderRepository |
+| Frameworks & Drivers | src/main.ts、infrastructure/config/、Express・Prisma本体 | Expressアプリの起動とPrismaClientの生成（src/main.ts）、infrastructure/config/ |
+
+ディレクトリ名と同心円のレイヤー名は、1対1には対応しない。infrastructure/の中では、persistence/がInterface Adapters、config/がFrameworks & Driversにあたる。external/には、外部APIのクライアントを置く。このうち、ユースケースが使うインターフェースを実装するクラス（例: 決済APIのクライアントの実装）は、Interface AdaptersのGatewayである。そのクラスが呼び出すSDKやHTTPライブラリ本体は、Frameworks & Driversに属する。presentation/のcontrollers/とroutes/は、Interface Adaptersの入力側にあたる。src/main.tsはFrameworks & Driversに含める。
+
+本教材のコード例では、ユースケースがOutputをreturnし、ControllerがそれをHTTPレスポンスに変換している。原典では、ユースケースがOutput Port（インターフェース）を呼び、Presenterがそれを実装する。小規模なアプリケーションなら、returnする方式で十分である。
+
 #### 依存性注入（DI）
 
 - クリーンアーキテクチャの依存ルールを実現する仕組み
 - NestJSのDIコンテナ
 - 手動DIによるシンプルな構成
 
+手動DIでは、アプリケーションのエントリーポイント（src/main.ts）で具体クラスを生成し、コンストラクタに渡して組み立てる。
+
 ```typescript
-// 手動DI: アプリケーション起動時に依存関係を組み立てる（Composition Root）
-// src/main.ts
+// src/main.ts — コンポジションルート（依存を組み立てる唯一の場所）
+// Prisma 7 は .env を自動で読み込まない。アプリのエントリーポイントの先頭で読み込む
+import 'dotenv/config';
+import express from 'express';
+import { PrismaPg } from '@prisma/adapter-pg';
+// Prisma 7 では、schema.prisma の generator で指定した output（"../src/generated/prisma"）から import する
+// このファイルは src/ の直下にあるので、相対パスは './generated/prisma/client' になる
+import { PrismaClient } from './generated/prisma/client';
+// （各レイヤーのクラスの import は省略）
 
-import { PrismaClient } from '@prisma/client';
-import { PrismaOrderRepository } from './infrastructure/persistence/prisma-order-repository';
-import { PrismaProductRepository } from './infrastructure/persistence/prisma-product-repository';
-import { EventBusPublisher } from './infrastructure/events/event-bus-publisher';
-import { PlaceOrderUseCase } from './application/use-cases/place-order';
-import { OrderController } from './presentation/controllers/order-controller';
+// Prisma 7 では、PrismaClient に driver adapter を渡す
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+const prisma = new PrismaClient({ adapter });
 
-// 依存関係の組み立て（ここだけが全レイヤーを知っている）
-const prisma = new PrismaClient();
-const orderRepo = new PrismaOrderRepository(prisma);
-const productRepo = new PrismaProductRepository(prisma);
-const eventPublisher = new EventBusPublisher();
+const placeOrder = new PlaceOrderUseCase(
+  new PrismaOrderRepository(prisma),
+  new PrismaProductRepository(prisma),
+  new InMemoryDomainEventPublisher(),
+);
+const orderController = new OrderController(placeOrder);
 
-const placeOrderUseCase = new PlaceOrderUseCase(orderRepo, productRepo, eventPublisher);
-const orderController = new OrderController(placeOrderUseCase);
-
-// Express にルーティングを設定
-app.post('/orders', (req, res) => orderController.create(req, res));
+const app = express();
+app.use(express.json());
+// 簡略化のため、ルートの定義を main.ts に書いている。実際のプロジェクトでは presentation/routes/ に置く
+app.post('/orders', (req, res, next) => {
+  orderController.create(req, res).catch(next);
+});
+app.listen(3000);
 ```
 
-> **手動DI vs DIコンテナ**: サービス数が少ない（〜10程度）なら手動DIで十分です。サービス数が増えてきたらNestJSのDIコンテナが有効です。大事なのは「DI自体を使うこと」であって、コンテナの有無ではありません。
+外側の具体クラス（PrismaOrderRepositoryなど）をimportして生成するのは、main.tsだけである。domain/とapplication/は、インターフェースにだけ依存する。
+
+- prisma.config.tsにもimport 'dotenv/config'を書くが、この記述で.envが読み込まれるのは、Prisma CLI（npx prisma migrateなど）を実行するときだけである。アプリをnpx tsx src/main.tsで実行するときは、main.tsの先頭のimport 'dotenv/config'が.envを読み込む
+- ExpressをTypeScriptで使うときは、expressに加えて型定義の@types/expressも必要である（npm install expressとnpm install -D @types/express）
+
+> **手動DIとDIコンテナ**：サービス数が少ない（10程度まで）なら、手動DIで十分である。サービス数が増えたら、NestJSのDIコンテナを検討する。どちらを選んでも、依存はコンストラクタで外から渡す。
 
 ### 5. よくある誤解と実践上の注意（10分）
 
 - 「クリーンアーキテクチャ = ディレクトリ構造」ではない
-- 小規模プロジェクトでの適用度合い — 全レイヤーが必要とは限らない
-- 「完璧なクリーンアーキテクチャ」より「依存の方向を意識する」ことが重要
+- 小規模プロジェクトでの適用度合い：全レイヤーが必要とは限らない
+- 「完璧なクリーンアーキテクチャ」を目指すより、「依存の方向を意識する」ことを優先する
 
 #### 規模に応じた適用レベル
 
@@ -180,7 +210,7 @@ app.post('/orders', (req, res) => orderController.create(req, res));
 |---------|----------|------|
 | ドメイン層 | ユニットテスト | 外部依存なし。純粋なロジックのテスト。最も高速 |
 | アプリケーション層 | ユニットテスト（モック使用） | リポジトリをモックに差し替えてユースケースをテスト |
-| インフラストラクチャ層 | 統合テスト | 実際のDB（テスト用）を使った永続化のテスト |
+| infrastructure/persistence/（Gateway） | 統合テスト | 実際のDB（テスト用）を使った永続化のテスト |
 | プレゼンテーション層 | E2Eテスト / APIテスト | HTTPリクエスト→レスポンスの全体フローをテスト |
 
 > **テストピラミッドとの関係**: ドメイン層のテストが最も多く・高速に、E2Eテストが最も少なく・低速に。クリーンアーキテクチャはこのテストピラミッドを自然に実現します。
@@ -234,6 +264,7 @@ class PlaceOrderUseCase {
 
     // 4. 永続化
     await this.orderRepo.save(order);
+    // 簡略化のため直接 publish している。本番では保存と同じトランザクションで outbox に書き込む（第9回で扱う）
     await this.eventPublisher.publish(event);
 
     // 5. 出力
@@ -246,7 +277,8 @@ class PlaceOrderUseCase {
 ```
 
 ```typescript
-// === プレゼンテーション層 ===
+// === プレゼンテーション層（presentation/controllers/。同心円では Interface Adapters の入力側） ===
+// src/presentation/controllers/OrderController.ts
 // Express Controller
 class OrderController {
   constructor(private readonly placeOrder: PlaceOrderUseCase) {}
@@ -263,8 +295,13 @@ class OrderController {
   }
 }
 
-// === インフラストラクチャ層 ===
+// === Interface Adapters 層の Gateway（infrastructure/persistence/ に配置） ===
+// src/infrastructure/persistence/PrismaOrderRepository.ts
 // リポジトリ実装（アダプター）
+// PrismaClient は Prisma 7 の生成先（src/generated/prisma/client）から import する
+// このファイルは src/infrastructure/persistence/ にあるので、相対パスは '../../generated/prisma/client' になる
+import { PrismaClient } from '../../generated/prisma/client';
+
 class PrismaOrderRepository implements OrderRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
@@ -288,9 +325,9 @@ class PrismaOrderRepository implements OrderRepository {
 
 ## ディスカッションテーマ
 
-1. **レイヤーの粒度** — 4つのレイヤーすべてが常に必要か？簡略化する場合、どこを省くか？
-2. **DI の手動 vs フレームワーク** — NestJSのDIコンテナを使うべきか、手動DIで十分か？
-3. **テスト戦略** — クリーンアーキテクチャにおいて、各レイヤーのテストはどう書くべきか？
+1. **レイヤーの粒度**：4つのレイヤーすべてが常に必要か？簡略化する場合、どこを省くか？
+2. **DIの手動 vs フレームワーク**：NestJSのDIコンテナを使うべきか、手動DIで十分か？
+3. **テスト戦略**：クリーンアーキテクチャにおいて、各レイヤーのテストはどう書くべきか？
 
 ## 課題
 
@@ -304,7 +341,8 @@ class PrismaOrderRepository implements OrderRepository {
 
 第5回の課題で設計した「ホテル予約システム」のドメインモデルに、クリーンアーキテクチャのレイヤー構造を適用してください。
 
-成果物：
+成果物として、次の4つを提出してください。
+
 - ディレクトリ構造の設計
 - 「部屋を予約する」ユースケースクラスの実装
 - リポジトリインターフェースの定義とインメモリ実装
@@ -370,7 +408,7 @@ app.post('/orders', async (req, res) => {
 
 - 『Clean Architecture』Robert C. Martin
 - 『ソフトウェアアーキテクチャの基礎』Mark Richards, Neal Ford
-- [The Clean Architecture](https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html) — Uncle Bob's Blog
+- [The Clean Architecture](https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html)：Uncle Bob's Blog
 
 ## 次回との接続
 

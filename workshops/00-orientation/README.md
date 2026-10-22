@@ -15,7 +15,7 @@
 ### 1. イントロダクション（15分）
 
 - ワークショップ「アーキテクチャ登竜門」の趣旨説明
-- 「アーキテクチャ」とは何か — ソフトウェアにおける設計判断の集合
+- 「アーキテクチャ」とは何か：ソフトウェアにおける設計判断の集合
 - 本ワークショップで扱う範囲と扱わない範囲
 
 > **講師メモ**: 「アーキテクチャ」という言葉は抽象的に聞こえがちです。まずは「ソフトウェアの構造に関する、後から変えにくい判断のこと」という定義を共有しましょう。Ralph Johnson の「アーキテクチャとは重要なもののこと。それが何であれ」という言葉を引用すると、参加者が「設計判断の重み」をイメージしやすくなります。
@@ -28,7 +28,7 @@
 - 現在のアーキテクチャに関する悩み・学びたいこと
 - （事前アンケート結果があれば共有）
 
-### 3. 全体ロードマップの紹介（20分）
+### 3. 全体ロードマップの紹介（15分）
 
 - 9つのテーマの概要と順序の意図
 - フェーズ構成（基礎 → 設計パターン → 分散システム）
@@ -60,10 +60,12 @@
 - 課題の取り組み方とフィードバックの仕組み
 - 質問・議論の推奨（「分からない」を歓迎する文化）
 
-### 5. 環境構築（20分）
+### 5. 環境構築（15分）
 
-- Node.js / TypeScript の開発環境確認
-- リポジトリのクローンとセットアップ
+環境構築は事前準備で済ませておく。当日は動作確認だけを行う。
+
+- Node.js / TypeScriptの開発環境の動作確認（`node --version` でNode.js 24が入っていることを確認する）
+- 作業用ディレクトリで、`hello.ts` が `npx tsx hello.ts` で実行できることを確認する
 - エディタ（VS Code推奨）の設定
 
 ### 6. ウォームアップ：設計について考える（15分）
@@ -86,11 +88,46 @@
 
 ### 参加者
 
-- [ ] Node.js（LTS版）のインストール
-- [ ] TypeScript のグローバルインストール（`npm install -g typescript ts-node`）
-- [ ] VS Code のインストール
-- [ ] Git の設定確認
+- [ ] Node.js 24をインストールする（nvmなら `nvm install 24`）。本教材はNode.js 24 LTSを想定している。Node.js 24のサポート期限は2028年4月
+- [ ] TypeScriptの実行環境の準備（下の手順を参照）
+- [ ] VS Codeのインストール
+- [ ] Gitの設定確認
 - [ ] 事前アンケートへの回答
+- [ ] （任意）DockerとPostgreSQLのインストール：第2回のデモを手元で試したい人向け
+
+**TypeScriptの実行環境の準備手順**
+
+TypeScriptはグローバルにインストールしない。プロジェクトごとに `typescript` と `tsx` と `@types/node`（Node.jsの型定義）を入れる。こうすると、プロジェクトごとに使うTypeScriptのバージョンを固定できる。
+
+```bash
+mkdir toryumon-workspace && cd toryumon-workspace
+npm init -y
+npm pkg set type=module   # ES module として扱う（第2回の Prisma 7 の前提とそろえる）
+npm install -D typescript tsx @types/node
+echo "const message: string = 'hello'; console.log(message);" > hello.ts
+npx tsx hello.ts   # hello と表示されれば準備完了
+```
+
+- WindowsのPowerShellでは、`echo ... > hello.ts` で作ったファイルがUTF-16で保存され、`npx tsx` で実行できないことがある。Windowsでは、`hello.ts` をエディタで作る（または `Set-Content -Encoding utf8` を使う）
+- 型チェックをするときは、作業用ディレクトリに次の `tsconfig.json` を置き、`npx tsc --noEmit` を実行する。`npx tsc --init` が出力する設定は `"module": "nodenext"` などになっている。この設定では拡張子のない相対import（`'./generated/prisma/client'` など）がエラーになるので、この教材では使わない
+
+```json
+{
+  "compilerOptions": {
+    "target": "es2022",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "types": ["node"],
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true
+  },
+  "include": ["src", "*.ts"]
+}
+```
+
+- Expressを使う回では、`@types/express` も必要になる（`npm install -D @types/express`）
+- `node hello.ts` では、教材のコード（`constructor(private readonly ...)` のようなパラメータプロパティなど）を実行できない。教材のコードは `npx tsx` で実行する
 
 ### 運営側
 
@@ -101,7 +138,7 @@
 
 ## 次回予告
 
-次回（第1回）は **オブジェクト指向** です。以下のキーワードについて事前に考えておくと理解が深まります。
+次回（第1回）のテーマは**オブジェクト指向**である。次のキーワードについて事前に考えておくと、講義の内容を理解しやすくなる。
 
 - カプセル化、継承、ポリモーフィズムの違い
 - SOLID原則（聞いたことがあれば）

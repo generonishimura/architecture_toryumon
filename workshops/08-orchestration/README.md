@@ -6,7 +6,7 @@
 
 | 項目 | 内容 |
 |------|------|
-| 所要時間 | 2〜2.5時間 |
+| 所要時間 | 2.5時間（150分） |
 | 前提知識 | 第7回（マイクロサービス）の内容、Dockerの基礎知識（あれば望ましい） |
 | 到達目標 | コンテナ化・オーケストレーション・CI/CDの概念を理解し、サービス運用の全体像を把握できる |
 
@@ -25,11 +25,11 @@
 
 ### 2. コンテナ技術（25分）
 
-#### Docker の基本概念
+#### Dockerの基本概念
 
-- コンテナとは — プロセスの隔離とパッケージング
+- コンテナとは：プロセスの隔離とパッケージング
 - イメージとコンテナの関係
-- Dockerfile の書き方とベストプラクティス
+- Dockerfileの書き方とベストプラクティス
 - マルチステージビルドによるイメージの軽量化
 
 ```
@@ -53,33 +53,56 @@ VM: OSごと仮想化 → 重い（GB単位）、起動に分単位
 ```
 
 > **Dockerfile ベストプラクティス**:
-> 1. **軽量ベースイメージを使う**: `node:20` ではなく `node:20-alpine`（900MB→150MB）
+> 1. **軽量ベースイメージを使う**: `node:24` ではなく `node:24-alpine` を使う（イメージのサイズが大きく減る）
 > 2. **レイヤーキャッシュを活用**: `package.json` を先にCOPYし `npm ci` → ソースコードはその後
 > 3. **マルチステージビルド**: ビルド用ステージと実行用ステージを分ける
 > 4. **rootユーザーで実行しない**: `USER node` で権限を制限
 > 5. **`.dockerignore` を使う**: `node_modules`, `.git`, `.env` を除外
 
-#### Node.js アプリケーションのコンテナ化
+#### Node.jsアプリケーションのコンテナ化
 
 ```dockerfile
 # マルチステージビルドの例
-FROM node:20-alpine AS builder
+FROM node:24-alpine AS builder
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 COPY . .
+# prisma.config.ts は DATABASE_URL を読むので、生成の時だけダミーの値を渡す（接続はしない）
+RUN DATABASE_URL="postgresql://build:build@localhost:5432/build" npx prisma generate
 RUN npm run build
+RUN npm prune --omit=dev   # 実行に不要な devDependencies を削除
 
-FROM node:20-alpine AS runner
+FROM node:24-alpine AS runner
+ENV NODE_ENV=production
 WORKDIR /app
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./
-
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/dist ./dist
 USER node
 EXPOSE 3000
 CMD ["node", "dist/main.js"]
 ```
+
+このDockerfileは、次の前提で書いている。
+
+- `npm run build` はesbuildで `src/main.ts` を1つのファイルにまとめる。package.jsonのscriptsには `"build": "esbuild src/main.ts --bundle --platform=node --format=esm --packages=external --outfile=dist/main.js"` と書く（`npm install -D esbuild`）
+- `tsc` ではビルドしない。教材のコードはES moduleで、相対importに拡張子を付けていない（`'./generated/prisma/client'` など）。`tsc` はこのimportを書き換えずに出力するので、`node dist/main.js` の起動時にNode.jsがファイルを見つけられない。esbuildは相対importのファイルを1つにまとめるので、この問題が起きない。型チェックは別に `npx tsc --noEmit` で行う
+- `--packages=external` を付けているので、npmパッケージ（`@prisma/adapter-pg`、`dotenv`、`express` など）はまとめずに `node_modules` から読み込む。そのため、これらは `-D` を付けずにdependenciesに入れる
+- Prismaの生成先は `src/generated/prisma` である（第2回を参照）。生成先はGitに含めないのが普通なので、Dockerfileの中で `npx prisma generate` を実行してからビルドする
+
+`COPY . .` でホストのファイルがイメージに入らないように、`.dockerignore` を置く。
+
+```
+# .dockerignore の例
+node_modules
+dist
+.git
+.env*
+```
+
+- `.env` をイメージに含めない。秘密情報は、実行時に環境変数やKubernetesのSecretで渡す
+- 本教材はNode.js 24 LTSを想定する（2028年4月までサポート）
 
 #### Docker Compose
 
@@ -147,15 +170,19 @@ volumes:
 
 ### 3. コンテナオーケストレーション（30分）
 
-#### Kubernetes の概要
+#### Kubernetesの概要
 
-- Kubernetes が解決する問題
+- Kubernetesで解決できる問題
 - 主要コンポーネントの理解
-  - Pod、Deployment、Service、Ingress
+  - Pod、Deployment、Service、Ingress / Gateway API
   - ConfigMap、Secret
   - Namespace
 
-#### Kubernetes の基本リソース
+> 注: Ingressは、外部からのHTTPアクセスをServiceに振り分ける従来の仕組みである。Ingress APIに新機能は追加されなくなった。代表的な実装のingress-nginxは、2026年3月に保守を終了した。新しく構築するなら、後継のGateway API（Gateway / HTTPRouteリソース）を検討する。
+
+> 注: この回の「オーケストレーション」は、コンテナの配置・起動・スケーリングを自動で管理することを指す。第9回のSagaパターンにも「オーケストレーション」という方式が出てくる。こちらは、1つのサービスが業務処理の実行順序を指示する方式で、別の概念である。
+
+#### Kubernetesの基本リソース
 
 ```yaml
 # Deployment の例
@@ -210,7 +237,7 @@ spec:
 #### サービスメッシュとは
 
 - サービス間通信のインフラ層を抽象化
-- Istio / Linkerd の概要
+- Istio / Linkerdの概要
 - サイドカープロキシパターン
 
 #### サービスメッシュが提供する機能
@@ -220,19 +247,19 @@ spec:
 - 可観測性（メトリクス、トレーシング、ログ）
 - 耐障害性（リトライ、Circuit Breaker、タイムアウト）
 
-### 5. CI/CD パイプライン（20分）
+### 5. CI/CDパイプライン（20分）
 
 #### CI（継続的インテグレーション）
 
 - ビルド → テスト → 静的解析の自動化
-- GitHub Actions / GitLab CI の概要
+- GitHub Actions / GitLab CIの概要
 - テスト戦略（ユニット、統合、E2E）
 
 #### CD（継続的デリバリー / デプロイメント）
 
 - デプロイ戦略
   - ローリングアップデート
-  - Blue-Green デプロイメント
+  - Blue-Greenデプロイメント
   - カナリアリリース
 - 各戦略のトレードオフ
 
@@ -271,7 +298,7 @@ Blue-Green:
 | Blue-Green | 高 | 高速 | 低 | ダウンタイムゼロが必須 |
 | カナリア | 中 | 高速 | 最低 | 大規模ユーザー向けサービス |
 
-#### CI/CD パイプラインの例
+#### CI/CDパイプラインの例
 
 ```yaml
 # GitHub Actions の例
@@ -284,10 +311,10 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
-          node-version: '20'
+          node-version: '24'
       - run: npm ci
       - run: npm run lint
       - run: npm test
@@ -296,7 +323,7 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Build and push Docker image
         run: |
           docker build -t myregistry/order-service:${{ github.sha }} .
@@ -314,31 +341,32 @@ jobs:
 
 ## ディスカッションテーマ
 
-1. **Kubernetes の学習コスト** — Kubernetes は全員が理解すべきか？プラットフォームチームに任せるべきか？
-2. **デプロイ戦略の選択** — ローリング、Blue-Green、カナリアの中で、自分のプロジェクトに最適なのはどれか？
-3. **サーバーレス vs コンテナ** — AWS Lambda 等のサーバーレスとコンテナオーケストレーションの使い分けは？
+1. **Kubernetesの学習コスト**：Kubernetesは全員が理解すべきか？プラットフォームチームに任せるべきか？
+2. **デプロイ戦略の選択**：ローリング、Blue-Green、カナリアの中で、自分のプロジェクトに最適なのはどれか？
+3. **サーバーレス vs コンテナ**：AWS Lambda等のサーバーレスとコンテナオーケストレーションの使い分けは？
 
 ## 課題
 
 ### 復習問題
 
 1. コンテナ化のメリットを3つ挙げ、それぞれ説明してください
-2. Kubernetes の Pod、Deployment、Service の関係を説明してください
-3. Blue-Green デプロイメントとカナリアリリースの違いを説明してください
+2. KubernetesのPod、Deployment、Serviceの関係を説明してください
+3. Blue-Greenデプロイメントとカナリアリリースの違いを説明してください
 
 ### コード課題
 
 第7回の課題で設計したECサイトのマイクロサービスのうち、1つのサービス（注文サービス推奨）について以下を作成してください。
 
-成果物：
+成果物は次の4つ。
+
 - Dockerfile（マルチステージビルド）
 - docker-compose.yml（サービス + データベース）
-- GitHub Actions のCI設定ファイル（lint + test + build）
-- Kubernetes の Deployment / Service マニフェスト
+- GitHub ActionsのCI設定ファイル（lint + test + build）
+- KubernetesのDeployment / Serviceマニフェスト
 
 ### 発展課題（任意）
 
-docker-compose を使って、注文サービスと在庫サービスの2つのマイクロサービスをローカルで起動し、API通信させてください。ヘルスチェックエンドポイントを含めてください。
+docker-composeを使って、注文サービスと在庫サービスの2つのマイクロサービスをローカルで起動し、API通信させてください。ヘルスチェックエンドポイントを含めてください。
 
 ## 事前準備
 
@@ -391,8 +419,8 @@ docker-compose を使って、注文サービスと在庫サービスの2つの�
 
 - 『Kubernetes完全ガイド 第2版』青山真也
 - 『Docker/Kubernetes 開発・運用のためのセキュリティ実践ガイド』須田瑛大 他
-- [Kubernetes Documentation](https://kubernetes.io/ja/docs/home/) — 公式ドキュメント（日本語）
+- [Kubernetes Documentation](https://kubernetes.io/ja/docs/home/)：公式ドキュメント（日本語）
 
 ## 次回との接続
 
-第8回ではサービスのデプロイ・管理を学びました。第9回（イベント駆動）では、マイクロサービス間のもう一つの重要な通信パターンであるイベント駆動アーキテクチャを学びます。非同期メッセージング、CQRS、Sagaパターンを扱います。
+第8回では、サービスのデプロイと管理を学んだ。第9回（イベント駆動）では、マイクロサービス間のもう一つの通信パターンであるイベント駆動アーキテクチャを学ぶ。非同期メッセージング、CQRS、Sagaパターンを扱う。
