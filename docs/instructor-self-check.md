@@ -82,7 +82,7 @@
 
 ### 概念の理解
 - [ ] Factory, Builder, Adapter, Facade, Strategy, Observer, Repositoryの各パターンが「どの設計課題を解決するか」を説明できるか
-- [ ] 生成・構造・振る舞いの分類と、各パターンがどの分類に属するかを理由とともに説明できるか
+- [ ] GoF の6パターンが生成・構造・振る舞いのどれに属するかと、Repository が GoF の分類に入らない理由を説明できるか
 - [ ] RepositoryパターンがDDDにおいてどのような役割を果たすかを説明できるか
 
 ### 実践力
@@ -116,7 +116,7 @@
 ## 第6回：クリーンアーキテクチャ
 
 ### 概念の理解
-- [ ] 同心円モデルにおける各レイヤー（Entities, Use Cases, Interface Adapters, Frameworks）の責務を説明できるか
+- [ ] 同心円モデルにおける各レイヤー（Entities, Use Cases, Interface Adapters, Frameworks & Drivers）の責務を説明できるか
 - [ ] 依存ルール（内側のレイヤーは外側のレイヤーを知らない）がなぜ重要なのかを、変更容易性の観点で説明できるか
 - [ ] DI（依存性注入）が依存ルールをどのように実現するかを、具体的なコード構造で説明できるか
 
