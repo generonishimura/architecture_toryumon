@@ -6,7 +6,7 @@
 
 | 項目 | 内容 |
 |------|------|
-| 所要時間 | 2〜2.5時間 |
+| 所要時間 | 2.5時間（150分） |
 | 前提知識 | 第7回（マイクロサービス）の内容、Dockerの基礎知識（あれば望ましい） |
 | 到達目標 | コンテナ化・オーケストレーション・CI/CDの概念を理解し、サービス運用の全体像を把握できる |
 
@@ -36,23 +36,46 @@
 
 ```dockerfile
 # マルチステージビルドの例
-FROM node:20-alpine AS builder
+FROM node:24-alpine AS builder
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 COPY . .
+# prisma.config.ts は DATABASE_URL を読むので、生成の時だけダミーの値を渡す（接続はしない）
+RUN DATABASE_URL="postgresql://build:build@localhost:5432/build" npx prisma generate
 RUN npm run build
+RUN npm prune --omit=dev   # 実行に不要な devDependencies を削除
 
-FROM node:20-alpine AS runner
+FROM node:24-alpine AS runner
+ENV NODE_ENV=production
 WORKDIR /app
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./
-
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/dist ./dist
 USER node
 EXPOSE 3000
 CMD ["node", "dist/main.js"]
 ```
+
+この Dockerfile は、次の前提で書いている。
+
+- `npm run build` は esbuild で `src/main.ts` を1つのファイルにまとめる。package.json の scripts には `"build": "esbuild src/main.ts --bundle --platform=node --format=esm --packages=external --outfile=dist/main.js"` と書く（`npm install -D esbuild`）
+- `tsc` でビルドしない理由: 教材のコードは ES module で、相対 import に拡張子を付けていない（`'./generated/prisma/client'` など）。`tsc` はこの import を書き換えずに出力するので、`node dist/main.js` の起動時に Node.js がファイルを見つけられない。esbuild は相対 import のファイルを1つにまとめるので、この問題が起きない。型チェックは別に `npx tsc --noEmit` で行う
+- `--packages=external` を付けているので、npm パッケージ（`@prisma/adapter-pg`、`dotenv`、`express` など）はまとめずに `node_modules` から読み込む。そのため、これらは `-D` を付けずに dependencies に入れる
+- Prisma の生成先は `src/generated/prisma` である（第2回を参照）。生成先は Git に含めないのが普通なので、Dockerfile の中で `npx prisma generate` を実行してからビルドする
+
+`COPY . .` でホストのファイルがイメージに入らないように、`.dockerignore` を置く。
+
+```
+# .dockerignore の例
+node_modules
+dist
+.git
+.env*
+```
+
+- `.env` をイメージに含めない。秘密情報は、実行時に環境変数や Kubernetes の Secret で渡す
+- 本教材は Node.js 24 LTS を想定する（2028年4月までサポート）
 
 #### Docker Compose
 
@@ -66,9 +89,13 @@ CMD ["node", "dist/main.js"]
 
 - Kubernetes が解決する問題
 - 主要コンポーネントの理解
-  - Pod、Deployment、Service、Ingress
+  - Pod、Deployment、Service、Ingress / Gateway API
   - ConfigMap、Secret
   - Namespace
+
+> 注: Ingress は、外部からの HTTP アクセスを Service に振り分ける従来の仕組みである。Ingress API に新機能は追加されなくなった。代表的な実装の ingress-nginx は、2026年3月に保守を終了した。新しく構築するなら、後継の Gateway API（Gateway / HTTPRoute リソース）を検討する。
+
+> 注: この回の「オーケストレーション」は、コンテナの配置・起動・スケーリングを自動で管理することを指す。第9回の Saga パターンにも「オーケストレーション」という方式が出てくるが、それは業務処理の実行順序を1つのサービスが指示する方式で、別の概念である。
 
 #### Kubernetes の基本リソース
 
@@ -164,10 +191,10 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
-          node-version: '20'
+          node-version: '24'
       - run: npm ci
       - run: npm run lint
       - run: npm test
@@ -176,7 +203,7 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Build and push Docker image
         run: |
           docker build -t myregistry/order-service:${{ github.sha }} .
